@@ -14,7 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      medicamentos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          dosagem: string
+          frequencia: string
+          horarios: Json
+          id: string
+          nome_medicamento: string
+          updated_at: string
+          usuario_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          dosagem: string
+          frequencia: string
+          horarios?: Json
+          id?: string
+          nome_medicamento: string
+          updated_at?: string
+          usuario_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          dosagem?: string
+          frequencia?: string
+          horarios?: Json
+          id?: string
+          nome_medicamento?: string
+          updated_at?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicamentos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      registros_tomada: {
+        Row: {
+          created_at: string
+          data_hora_prevista: string
+          data_hora_realizada: string | null
+          id: string
+          medicamento_id: string
+          status: string
+          usuario_id: string
+        }
+        Insert: {
+          created_at?: string
+          data_hora_prevista: string
+          data_hora_realizada?: string | null
+          id?: string
+          medicamento_id: string
+          status?: string
+          usuario_id: string
+        }
+        Update: {
+          created_at?: string
+          data_hora_prevista?: string
+          data_hora_realizada?: string | null
+          id?: string
+          medicamento_id?: string
+          status?: string
+          usuario_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_tomada_medicamento_id_fkey"
+            columns: ["medicamento_id"]
+            isOneToOne: false
+            referencedRelation: "medicamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "registros_tomada_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
