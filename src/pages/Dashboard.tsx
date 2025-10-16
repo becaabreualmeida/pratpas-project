@@ -1,0 +1,194 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
+import { Plus, LogOut, Clock, Pill } from "lucide-react";
+import type { User } from "@supabase/supabase-js";
+
+interface Medicamento {
+  id: string;
+  nome_medicamento: string;
+  dosagem: string;
+  horarios: any;
+}
+
+interface ProximaDose {
+  medicamento: Medicamento;
+  horario: string;
+}
+
+const Dashboard = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [proximasDoses, setProximasDoses] = useState<ProximaDose[]>([]);
+  const navigate = useNavigate();
+
+  const coresCards = [
+    'bg-[hsl(var(--dose-card-1))]',
+    'bg-[hsl(var(--dose-card-2))]',
+    'bg-[hsl(var(--dose-card-3))]',
+    'bg-[hsl(var(--dose-card-4))]',
+  ];
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+
+      setUser(session.user);
+      await carregarMedicamentos(session.user.id);
+      setLoading(false);
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+      } else {
+        setUser(session.user);
+        carregarMedicamentos(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const carregarMedicamentos = async (userId: string) => {
+    try {
+      const { data: medicamentos, error } = await supabase
+        .from('medicamentos')
+        .select('*')
+        .eq('usuario_id', userId)
+        .eq('ativo', true);
+
+      if (error) throw error;
+
+      if (medicamentos) {
+        const agora = new Date();
+        const horaAtual = agora.getHours();
+        const minutoAtual = agora.getMinutes();
+
+        const doses: ProximaDose[] = [];
+        
+        medicamentos.forEach((med) => {
+          const horarios = Array.isArray(med.horarios) ? med.horarios : [];
+          horarios.forEach((horario: string) => {
+            const [hora, minuto] = horario.split(':').map(Number);
+            
+            if (hora > horaAtual || (hora === horaAtual && minuto >= minutoAtual)) {
+              doses.push({
+                medicamento: med,
+                horario: horario,
+              });
+            }
+          });
+        });
+
+        doses.sort((a, b) => {
+          const [horaA, minA] = a.horario.split(':').map(Number);
+          const [horaB, minB] = b.horario.split(':').map(Number);
+          return horaA * 60 + minA - (horaB * 60 + minB);
+        });
+
+        setProximasDoses(doses.slice(0, 4));
+      }
+    } catch (error: any) {
+      toast.error("Erro ao carregar medicamentos");
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Você saiu da sua conta");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Pill className="w-16 h-16 text-primary animate-pulse mx-auto mb-4" />
+          <p className="text-xl text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b shadow-[var(--shadow-soft)] sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <Pill className="w-10 h-10 text-primary" />
+            <h1 className="text-2xl font-bold">MediLembre</h1>
+          </div>
+          <Button variant="outline" size="lg" onClick={handleLogout}>
+            <LogOut className="w-5 h-5 mr-2" />
+            Sair
+          </Button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-6">Próximas Doses</h2>
+          
+          {proximasDoses.length === 0 ? (
+            <Card className="p-12 text-center">
+              <Pill className="w-20 h-20 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <h3 className="text-2xl font-semibold mb-2">Nenhum medicamento cadastrado</h3>
+              <p className="text-xl text-muted-foreground mb-6">
+                Clique no botão abaixo para adicionar seu primeiro remédio
+              </p>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {proximasDoses.map((dose, index) => (
+                <Card
+                  key={`${dose.medicamento.id}-${dose.horario}`}
+                  className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white/80 rounded-full p-4">
+                      <Clock className="w-8 h-8 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-3 mb-2">
+                        <span className="text-4xl font-bold text-foreground">
+                          {dose.horario}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-semibold text-foreground mb-1">
+                        {dose.medicamento.nome_medicamento}
+                      </h3>
+                      <p className="text-xl text-foreground/80">
+                        {dose.medicamento.dosagem}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Button
+          size="lg"
+          className="w-full h-16 text-xl font-semibold shadow-[var(--shadow-medium)]"
+          onClick={() => navigate("/novo-medicamento")}
+        >
+          <Plus className="w-6 h-6 mr-2" />
+          Registrar Novo Medicamento
+        </Button>
+      </main>
+    </div>
+  );
+};
+
+export default Dashboard;
