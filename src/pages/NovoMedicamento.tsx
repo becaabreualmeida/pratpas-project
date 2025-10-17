@@ -12,34 +12,25 @@ const NovoMedicamento = () => {
   const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [dosagem, setDosagem] = useState("");
-  const [frequencia, setFrequencia] = useState("");
-  const [horarios, setHorarios] = useState<string[]>([""]);
+  const [horarioInicio, setHorarioInicio] = useState("");
+  const [frequenciaNumero, setFrequenciaNumero] = useState("");
+  const [frequenciaUnidade, setFrequenciaUnidade] = useState("horas");
   const [loading, setLoading] = useState(false);
 
-  const adicionarHorario = () => {
-    setHorarios([...horarios, ""]);
-  };
-
-  const removerHorario = (index: number) => {
-    const novosHorarios = horarios.filter((_, i) => i !== index);
-    setHorarios(novosHorarios.length > 0 ? novosHorarios : [""]);
-  };
-
-  const atualizarHorario = (index: number, valor: string) => {
-    const novosHorarios = [...horarios];
-    novosHorarios[index] = valor;
-    setHorarios(novosHorarios);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const horariosValidos = horarios.filter(h => h.trim() !== "");
-      
-      if (horariosValidos.length === 0) {
-        toast.error("Adicione pelo menos um horário");
+      if (!horarioInicio) {
+        toast.error("Por favor, defina o horário de início");
+        setLoading(false);
+        return;
+      }
+
+      if (!frequenciaNumero || parseInt(frequenciaNumero) <= 0) {
+        toast.error("Por favor, defina uma frequência válida");
         setLoading(false);
         return;
       }
@@ -52,39 +43,40 @@ const NovoMedicamento = () => {
         return;
       }
 
-      const { error: medicamentoError } = await supabase
+      // Criar o medicamento
+      const { data: medicamento, error: medicamentoError } = await supabase
         .from('medicamentos')
         .insert({
           usuario_id: user.id,
           nome_medicamento: nome,
           dosagem: dosagem,
-          frequencia: frequencia,
-          horarios: horariosValidos,
-        });
+          horario_inicio: horarioInicio,
+          frequencia_numero: parseInt(frequenciaNumero),
+          frequencia_unidade: frequenciaUnidade,
+        })
+        .select()
+        .single();
 
       if (medicamentoError) throw medicamentoError;
 
-      const agora = new Date();
-      const registros = [];
-
-      for (const horario of horariosValidos) {
-        const [hora, minuto] = horario.split(':').map(Number);
-        const dataHora = new Date(agora);
-        dataHora.setHours(hora, minuto, 0, 0);
-
-        if (dataHora < agora) {
-          dataHora.setDate(dataHora.getDate() + 1);
-        }
-
-        registros.push({
-          medicamento_id: null,
+      // Chamar edge function para agendar os lembretes
+      const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
+        body: {
+          medicamento_id: medicamento.id,
           usuario_id: user.id,
-          data_hora_prevista: dataHora.toISOString(),
-          status: 'Pendente',
-        });
+          horario_inicio: horarioInicio,
+          frequencia_numero: parseInt(frequenciaNumero),
+          frequencia_unidade: frequenciaUnidade,
+        },
+      });
+
+      if (agendamentoError) {
+        console.error('Erro ao agendar lembretes:', agendamentoError);
+        toast.error("Medicamento salvo, mas houve erro ao agendar lembretes");
+      } else {
+        toast.success("Medicamento cadastrado e lembretes agendados!");
       }
 
-      toast.success("Medicamento cadastrado com sucesso!");
       navigate("/dashboard");
     } catch (error: any) {
       toast.error("Erro ao cadastrar medicamento");
@@ -151,54 +143,39 @@ const NovoMedicamento = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="frequencia" className="text-xl">Frequência</Label>
+                <Label htmlFor="horario-inicio" className="text-xl">Horário de Início</Label>
                 <Input
-                  id="frequencia"
-                  type="text"
-                  placeholder="Ex: A cada 8 horas"
-                  value={frequencia}
-                  onChange={(e) => setFrequencia(e.target.value)}
+                  id="horario-inicio"
+                  type="time"
+                  value={horarioInicio}
+                  onChange={(e) => setHorarioInicio(e.target.value)}
                   required
                   className="h-14 text-lg"
                 />
               </div>
 
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xl">Horários</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    onClick={adicionarHorario}
+                <Label className="text-xl">Repetir a cada</Label>
+                <div className="flex gap-3">
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="Ex: 8"
+                    value={frequenciaNumero}
+                    onChange={(e) => setFrequenciaNumero(e.target.value)}
+                    required
+                    className="h-14 text-lg flex-1"
+                  />
+                  <select
+                    value={frequenciaUnidade}
+                    onChange={(e) => setFrequenciaUnidade(e.target.value)}
+                    className="h-14 text-lg px-4 rounded-md border border-input bg-background"
                   >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Adicionar Horário
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {horarios.map((horario, index) => (
-                    <div key={index} className="flex gap-3">
-                      <Input
-                        type="time"
-                        value={horario}
-                        onChange={(e) => atualizarHorario(index, e.target.value)}
-                        required
-                        className="h-14 text-lg flex-1"
-                      />
-                      {horarios.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="lg"
-                          onClick={() => removerHorario(index)}
-                        >
-                          <X className="w-5 h-5" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                    <option value="horas">Horas</option>
+                    <option value="dias">Dias</option>
+                    <option value="semanas">Semanas</option>
+                    <option value="meses">Meses</option>
+                  </select>
                 </div>
               </div>
             </form>

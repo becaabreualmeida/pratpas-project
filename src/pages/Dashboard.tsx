@@ -11,7 +11,9 @@ interface Medicamento {
   id: string;
   nome_medicamento: string;
   dosagem: string;
-  horarios: any;
+  horario_inicio: string;
+  frequencia_numero: number;
+  frequencia_unidade: string;
 }
 
 interface ProximaDose {
@@ -62,45 +64,43 @@ const Dashboard = () => {
 
   const carregarMedicamentos = async (userId: string) => {
     try {
-      const { data: medicamentos, error } = await supabase
-        .from('medicamentos')
-        .select('*')
+      const agora = new Date().toISOString();
+      const { data: registrosPendentes, error } = await supabase
+        .from('registros_tomada')
+        .select(`
+          id,
+          data_hora_prevista,
+          medicamentos (
+            id,
+            nome_medicamento,
+            dosagem,
+            horario_inicio,
+            frequencia_numero,
+            frequencia_unidade
+          )
+        `)
         .eq('usuario_id', userId)
-        .eq('ativo', true);
+        .eq('status', 'Pendente')
+        .gte('data_hora_prevista', agora)
+        .order('data_hora_prevista', { ascending: true })
+        .limit(4);
 
       if (error) throw error;
 
-      if (medicamentos) {
-        const agora = new Date();
-        const horaAtual = agora.getHours();
-        const minutoAtual = agora.getMinutes();
+      if (registrosPendentes) {
+        const doses: ProximaDose[] = registrosPendentes.map((reg: any) => ({
+          medicamento: reg.medicamentos,
+          horario: new Date(reg.data_hora_prevista).toLocaleTimeString('pt-BR', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
+        }));
 
-        const doses: ProximaDose[] = [];
-        
-        medicamentos.forEach((med) => {
-          const horarios = Array.isArray(med.horarios) ? med.horarios : [];
-          horarios.forEach((horario: string) => {
-            const [hora, minuto] = horario.split(':').map(Number);
-            
-            if (hora > horaAtual || (hora === horaAtual && minuto >= minutoAtual)) {
-              doses.push({
-                medicamento: med,
-                horario: horario,
-              });
-            }
-          });
-        });
-
-        doses.sort((a, b) => {
-          const [horaA, minA] = a.horario.split(':').map(Number);
-          const [horaB, minB] = b.horario.split(':').map(Number);
-          return horaA * 60 + minA - (horaB * 60 + minB);
-        });
-
-        setProximasDoses(doses.slice(0, 4));
+        setProximasDoses(doses);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar medicamentos");
+      console.error(error);
     }
   };
 

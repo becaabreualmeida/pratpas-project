@@ -156,6 +156,16 @@ const Auth = () => {
                 isLogin ? "Entrar" : "Cadastrar"
               )}
             </Button>
+            {isLogin && (
+              <Button
+                type="button"
+                variant="link"
+                className="w-full text-lg"
+                onClick={() => navigate("/recuperar-senha")}
+              >
+                Esqueci minha senha
+              </Button>
+            )}
             <Button
               type="button"
               variant="ghost"
