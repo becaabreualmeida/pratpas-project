@@ -17,25 +17,47 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { medicamento_id, usuario_id, horario_inicio, frequencia_numero, frequencia_unidade } = await req.json();
+    const { medicamento_id, usuario_id, horario_inicio, frequencia_numero, frequencia_unidade, data_inicio, data_fim } = await req.json();
 
-    console.log('Agendando medicamento:', { medicamento_id, usuario_id, horario_inicio, frequencia_numero, frequencia_unidade });
+    console.log('Agendando medicamento:', { medicamento_id, usuario_id, horario_inicio, frequencia_numero, frequencia_unidade, data_inicio, data_fim });
 
-    // Calcular próximos 90 dias de lembretes
-    const diasParaAgendar = 90;
+    // Calcular lembretes entre data_inicio e data_fim
     const registros = [];
     const agora = new Date();
 
     // Parsear horário inicial
     const [hora, minuto] = horario_inicio.split(':').map(Number);
     
-    let dataHoraAtual = new Date(agora);
-    dataHoraAtual.setHours(hora, minuto, 0, 0);
-
-    // Se o horário inicial já passou hoje, começar amanhã
-    if (dataHoraAtual < agora) {
-      dataHoraAtual.setDate(dataHoraAtual.getDate() + 1);
+    // Determinar data de início
+    let dataInicio = data_inicio ? new Date(data_inicio) : new Date(agora);
+    dataInicio.setHours(hora, minuto, 0, 0);
+    
+    // Se a data de início for hoje e o horário já passou, começar do próximo horário
+    if (dataInicio.toDateString() === agora.toDateString() && dataInicio < agora) {
+      // Calcular intervalo em milissegundos
+      let intervaloMs = 0;
+      switch (frequencia_unidade) {
+        case 'horas':
+          intervaloMs = frequencia_numero * 60 * 60 * 1000;
+          break;
+        case 'dias':
+          intervaloMs = frequencia_numero * 24 * 60 * 60 * 1000;
+          break;
+        case 'semanas':
+          intervaloMs = frequencia_numero * 7 * 24 * 60 * 60 * 1000;
+          break;
+        case 'meses':
+          intervaloMs = frequencia_numero * 30 * 24 * 60 * 60 * 1000;
+          break;
+      }
+      
+      // Avançar para o próximo horário válido
+      while (dataInicio < agora) {
+        dataInicio = new Date(dataInicio.getTime() + intervaloMs);
+      }
     }
+    
+    let dataHoraAtual = new Date(dataInicio);
 
     // Calcular intervalo em milissegundos
     let intervaloMs = 0;
@@ -54,8 +76,11 @@ serve(async (req) => {
         break;
     }
 
-    const dataLimite = new Date(agora);
-    dataLimite.setDate(dataLimite.getDate() + diasParaAgendar);
+    // Determinar data limite (data_fim ou 90 dias)
+    const dataLimite = data_fim 
+      ? new Date(data_fim) 
+      : new Date(agora.getTime() + 90 * 24 * 60 * 60 * 1000);
+    dataLimite.setHours(23, 59, 59, 999);
 
     // Gerar todos os registros
     while (dataHoraAtual <= dataLimite) {
@@ -83,11 +108,15 @@ serve(async (req) => {
 
     console.log('Registros criados com sucesso');
 
+    const diasCalculados = data_fim 
+      ? Math.ceil((new Date(data_fim).getTime() - new Date(data_inicio || agora).getTime()) / (1000 * 60 * 60 * 24))
+      : 90;
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         registros_criados: registros.length,
-        mensagem: `${registros.length} lembretes agendados para os próximos ${diasParaAgendar} dias`
+        mensagem: `${registros.length} lembretes agendados entre ${new Date(data_inicio || agora).toLocaleDateString('pt-BR')} e ${new Date(data_fim || new Date(agora.getTime() + 90 * 24 * 60 * 60 * 1000)).toLocaleDateString('pt-BR')}`
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
