@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NovoMedicamento from "./pages/NovoMedicamento";
+import RecuperarSenha from "./pages/RecuperarSenha";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/novo-medicamento" element={<NovoMedicamento />} />
+          <Route path="/recuperar-senha" element={<RecuperarSenha />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

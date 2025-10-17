@@ -1,1 +1,4 @@
 project_id = "pqzxhxsvxvosvpclhmwu"
+
+[functions.agendar-medicamento]
+verify_jwt = false

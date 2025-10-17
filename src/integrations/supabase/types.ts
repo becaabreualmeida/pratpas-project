@@ -19,8 +19,9 @@ export type Database = {
           ativo: boolean
           created_at: string
           dosagem: string
-          frequencia: string
-          horarios: Json
+          frequencia_numero: number | null
+          frequencia_unidade: string | null
+          horario_inicio: string | null
           id: string
           nome_medicamento: string
           updated_at: string
@@ -30,8 +31,9 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           dosagem: string
-          frequencia: string
-          horarios?: Json
+          frequencia_numero?: number | null
+          frequencia_unidade?: string | null
+          horario_inicio?: string | null
           id?: string
           nome_medicamento: string
           updated_at?: string
@@ -41,8 +43,9 @@ export type Database = {
           ativo?: boolean
           created_at?: string
           dosagem?: string
-          frequencia?: string
-          horarios?: Json
+          frequencia_numero?: number | null
+          frequencia_unidade?: string | null
+          horario_inicio?: string | null
           id?: string
           nome_medicamento?: string
           updated_at?: string
