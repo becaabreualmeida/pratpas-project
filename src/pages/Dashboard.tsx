@@ -19,12 +19,17 @@ interface Medicamento {
 interface ProximaDose {
   medicamento: Medicamento;
   horario: string;
+  data: string;
+}
+
+interface DosesPorDia {
+  [data: string]: ProximaDose[];
 }
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [proximasDoses, setProximasDoses] = useState<ProximaDose[]>([]);
+  const [dosesPorDia, setDosesPorDia] = useState<DosesPorDia>({});
   const navigate = useNavigate();
 
   const coresCards = [
@@ -83,7 +88,7 @@ const Dashboard = () => {
         .eq('status', 'Pendente')
         .gte('data_hora_prevista', agora)
         .order('data_hora_prevista', { ascending: true })
-        .limit(4);
+        .limit(20);
 
       if (error) throw error;
 
@@ -94,9 +99,23 @@ const Dashboard = () => {
             hour: '2-digit', 
             minute: '2-digit' 
           }),
+          data: new Date(reg.data_hora_prevista).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+          }),
         }));
 
-        setProximasDoses(doses);
+        // Agrupar doses por dia
+        const grouped = doses.reduce((acc: DosesPorDia, dose) => {
+          if (!acc[dose.data]) {
+            acc[dose.data] = [];
+          }
+          acc[dose.data].push(dose);
+          return acc;
+        }, {});
+
+        setDosesPorDia(grouped);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar medicamentos");
@@ -139,7 +158,7 @@ const Dashboard = () => {
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-6">Próximas Doses</h2>
           
-          {proximasDoses.length === 0 ? (
+          {Object.keys(dosesPorDia).length === 0 ? (
             <Card className="p-12 text-center">
               <Pill className="w-20 h-20 text-muted-foreground mx-auto mb-4 opacity-50" />
               <h3 className="text-2xl font-semibold mb-2">Nenhum medicamento cadastrado</h3>
@@ -148,31 +167,38 @@ const Dashboard = () => {
               </p>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {proximasDoses.map((dose, index) => (
-                <Card
-                  key={`${dose.medicamento.id}-${dose.horario}`}
-                  className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-white/80 rounded-full p-4">
-                      <Clock className="w-8 h-8 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-3 mb-2">
-                        <span className="text-4xl font-bold text-foreground">
-                          {dose.horario}
-                        </span>
-                      </div>
-                      <h3 className="text-2xl font-semibold text-foreground mb-1">
-                        {dose.medicamento.nome_medicamento}
-                      </h3>
-                      <p className="text-xl text-foreground/80">
-                        {dose.medicamento.dosagem}
-                      </p>
-                    </div>
+            <div className="space-y-8">
+              {Object.entries(dosesPorDia).map(([data, doses]) => (
+                <div key={data} className="space-y-4">
+                  <h3 className="text-2xl font-bold text-primary">{data}</h3>
+                  <div className="space-y-4">
+                    {doses.map((dose, index) => (
+                      <Card
+                        key={`${dose.medicamento.id}-${dose.horario}`}
+                        className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="bg-white/80 rounded-full p-4">
+                            <Clock className="w-8 h-8 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-baseline gap-3 mb-2">
+                              <span className="text-4xl font-bold text-foreground">
+                                {dose.horario}
+                              </span>
+                            </div>
+                            <h3 className="text-2xl font-semibold text-foreground mb-1">
+                              {dose.medicamento.nome_medicamento}
+                            </h3>
+                            <p className="text-xl text-foreground/80">
+                              {dose.medicamento.dosagem}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
           )}

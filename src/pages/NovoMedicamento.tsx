@@ -15,6 +15,8 @@ const NovoMedicamento = () => {
   const [horarioInicio, setHorarioInicio] = useState("");
   const [frequenciaNumero, setFrequenciaNumero] = useState("");
   const [frequenciaUnidade, setFrequenciaUnidade] = useState("horas");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [loading, setLoading] = useState(false);
 
 
@@ -53,6 +55,8 @@ const NovoMedicamento = () => {
           horario_inicio: horarioInicio,
           frequencia_numero: parseInt(frequenciaNumero),
           frequencia_unidade: frequenciaUnidade,
+          data_inicio: dataInicio || null,
+          data_fim: dataFim || null,
         })
         .select()
         .single();
@@ -67,6 +71,8 @@ const NovoMedicamento = () => {
           horario_inicio: horarioInicio,
           frequencia_numero: parseInt(frequenciaNumero),
           frequencia_unidade: frequenciaUnidade,
+          data_inicio: dataInicio || null,
+          data_fim: dataFim || null,
         },
       });
 
@@ -137,6 +143,30 @@ const NovoMedicamento = () => {
                   placeholder="Ex: 500mg - 1 comprimido"
                   value={dosagem}
                   onChange={(e) => setDosagem(e.target.value)}
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="data-inicio" className="text-xl">Data de Início</Label>
+                <Input
+                  id="data-inicio"
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  required
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="data-fim" className="text-xl">Data de Fim</Label>
+                <Input
+                  id="data-fim"
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
                   required
                   className="h-14 text-lg"
                 />

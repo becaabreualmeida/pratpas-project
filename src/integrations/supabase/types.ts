@@ -18,6 +18,8 @@ export type Database = {
         Row: {
           ativo: boolean
           created_at: string
+          data_fim: string | null
+          data_inicio: string | null
           dosagem: string
           frequencia_numero: number | null
           frequencia_unidade: string | null
@@ -30,6 +32,8 @@ export type Database = {
         Insert: {
           ativo?: boolean
           created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
           dosagem: string
           frequencia_numero?: number | null
           frequencia_unidade?: string | null
@@ -42,6 +46,8 @@ export type Database = {
         Update: {
           ativo?: boolean
           created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
           dosagem?: string
           frequencia_numero?: number | null
           frequencia_unidade?: string | null
