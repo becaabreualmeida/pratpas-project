@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, LogOut, Clock, Pill } from "lucide-react";
+import { Plus, LogOut, Clock, Pill, User as UserIcon, Users, Settings } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import ConfirmarTomada from "@/components/ConfirmarTomada";
 import type { User } from "@supabase/supabase-js";
 
 interface Medicamento {
@@ -17,6 +19,7 @@ interface Medicamento {
 }
 
 interface ProximaDose {
+  registroId: string;
   medicamento: Medicamento;
   horario: string;
   data: string;
@@ -30,6 +33,8 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [dosesPorDia, setDosesPorDia] = useState<DosesPorDia>({});
+  const [modalAberto, setModalAberto] = useState(false);
+  const [doseAtual, setDoseAtual] = useState<ProximaDose | null>(null);
   const navigate = useNavigate();
 
   const coresCards = [
@@ -94,6 +99,7 @@ const Dashboard = () => {
 
       if (registrosPendentes) {
         const doses: ProximaDose[] = registrosPendentes.map((reg: any) => ({
+          registroId: reg.id,
           medicamento: reg.medicamentos,
           horario: new Date(reg.data_hora_prevista).toLocaleTimeString('pt-BR', { 
             hour: '2-digit', 
@@ -147,10 +153,30 @@ const Dashboard = () => {
             <Pill className="w-10 h-10 text-primary" />
             <h1 className="text-2xl font-bold">MediLembre</h1>
           </div>
-          <Button variant="outline" size="lg" onClick={handleLogout}>
-            <LogOut className="w-5 h-5 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="lg">
+                  <Settings className="w-5 h-5 mr-2" />
+                  Menu
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate("/editar-perfil")} className="text-lg py-3">
+                  <UserIcon className="w-5 h-5 mr-2" />
+                  Meu Perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/cuidadores")} className="text-lg py-3">
+                  <Users className="w-5 h-5 mr-2" />
+                  Gerenciar Cuidadores
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-lg py-3">
+                  <LogOut className="w-5 h-5 mr-2" />
+                  Sair
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
@@ -175,7 +201,11 @@ const Dashboard = () => {
                     {doses.map((dose, index) => (
                       <Card
                         key={`${dose.medicamento.id}-${dose.horario}`}
-                        className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]`}
+                        className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02] cursor-pointer`}
+                        onClick={() => {
+                          setDoseAtual(dose);
+                          setModalAberto(true);
+                        }}
                       >
                         <div className="flex items-center gap-4">
                           <div className="bg-white/80 rounded-full p-4">
@@ -213,6 +243,22 @@ const Dashboard = () => {
           Registrar Novo Medicamento
         </Button>
       </main>
+
+      {doseAtual && (
+        <ConfirmarTomada
+          open={modalAberto}
+          onOpenChange={setModalAberto}
+          registroId={doseAtual.registroId}
+          medicamentoId={doseAtual.medicamento.id}
+          nomeMedicamento={doseAtual.medicamento.nome_medicamento}
+          dosagem={doseAtual.medicamento.dosagem}
+          onConfirmar={() => {
+            if (user) {
+              carregarMedicamentos(user.id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

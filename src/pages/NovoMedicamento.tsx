@@ -17,6 +17,8 @@ const NovoMedicamento = () => {
   const [frequenciaUnidade, setFrequenciaUnidade] = useState("horas");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [quantidadeInicial, setQuantidadeInicial] = useState("");
+  const [limiteReabastecimento, setLimiteReabastecimento] = useState("");
   const [loading, setLoading] = useState(false);
 
 
@@ -57,6 +59,9 @@ const NovoMedicamento = () => {
           frequencia_unidade: frequenciaUnidade,
           data_inicio: dataInicio || null,
           data_fim: dataFim || null,
+          quantidade_inicial: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+          quantidade_atual: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+          limite_reabastecimento: limiteReabastecimento ? parseInt(limiteReabastecimento) : null,
         })
         .select()
         .single();
@@ -207,6 +212,32 @@ const NovoMedicamento = () => {
                     <option value="meses">Meses</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="quantidade-inicial" className="text-xl">Quantidade Inicial</Label>
+                <Input
+                  id="quantidade-inicial"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 30"
+                  value={quantidadeInicial}
+                  onChange={(e) => setQuantidadeInicial(e.target.value)}
+                  className="h-14 text-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="limite-reabastecimento" className="text-xl">Alertar quando restar</Label>
+                <Input
+                  id="limite-reabastecimento"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 5"
+                  value={limiteReabastecimento}
+                  onChange={(e) => setLimiteReabastecimento(e.target.value)}
+                  className="h-14 text-lg"
+                />
               </div>
             </form>
           </CardContent>

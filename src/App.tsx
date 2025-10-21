@@ -8,6 +8,8 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NovoMedicamento from "./pages/NovoMedicamento";
 import RecuperarSenha from "./pages/RecuperarSenha";
+import EditarPerfil from "./pages/EditarPerfil";
+import Cuidadores from "./pages/Cuidadores";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,11 +22,13 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/novo-medicamento" element={<NovoMedicamento />} />
-          <Route path="/recuperar-senha" element={<RecuperarSenha />} />
-          <Route path="*" element={<NotFound />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/novo-medicamento" element={<NovoMedicamento />} />
+        <Route path="/recuperar-senha" element={<RecuperarSenha />} />
+        <Route path="/editar-perfil" element={<EditarPerfil />} />
+        <Route path="/cuidadores" element={<Cuidadores />} />
+        <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
