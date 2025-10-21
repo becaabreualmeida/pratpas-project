@@ -25,7 +25,10 @@ export type Database = {
           frequencia_unidade: string | null
           horario_inicio: string | null
           id: string
+          limite_reabastecimento: number | null
           nome_medicamento: string
+          quantidade_atual: number | null
+          quantidade_inicial: number | null
           updated_at: string
           usuario_id: string
         }
@@ -39,7 +42,10 @@ export type Database = {
           frequencia_unidade?: string | null
           horario_inicio?: string | null
           id?: string
+          limite_reabastecimento?: number | null
           nome_medicamento: string
+          quantidade_atual?: number | null
+          quantidade_inicial?: number | null
           updated_at?: string
           usuario_id: string
         }
@@ -53,7 +59,10 @@ export type Database = {
           frequencia_unidade?: string | null
           horario_inicio?: string | null
           id?: string
+          limite_reabastecimento?: number | null
           nome_medicamento?: string
+          quantidade_atual?: number | null
+          quantidade_inicial?: number | null
           updated_at?: string
           usuario_id?: string
         }
@@ -69,21 +78,36 @@ export type Database = {
       }
       profiles: {
         Row: {
+          alergias: string | null
+          condicoes_medicas: string | null
+          contato_emergencia_nome: string | null
+          contato_emergencia_telefone: string | null
           created_at: string
+          data_nascimento: string | null
           email: string
           id: string
           nome: string
           updated_at: string
         }
         Insert: {
+          alergias?: string | null
+          condicoes_medicas?: string | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_telefone?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email: string
           id: string
           nome: string
           updated_at?: string
         }
         Update: {
+          alergias?: string | null
+          condicoes_medicas?: string | null
+          contato_emergencia_nome?: string | null
+          contato_emergencia_telefone?: string | null
           created_at?: string
+          data_nascimento?: string | null
           email?: string
           id?: string
           nome?: string

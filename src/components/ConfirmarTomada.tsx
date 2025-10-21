@@ -9,6 +9,7 @@ interface ConfirmarTomadaProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   registroId: string;
+  medicamentoId: string;
   nomeMedicamento: string;
   dosagem: string;
   onConfirmar: () => void;
@@ -17,7 +18,8 @@ interface ConfirmarTomadaProps {
 const ConfirmarTomada = ({ 
   open, 
   onOpenChange, 
-  registroId, 
+  registroId,
+  medicamentoId,
   nomeMedicamento, 
   dosagem,
   onConfirmar 
@@ -31,6 +33,34 @@ const ConfirmarTomada = ({
       
       if (status === 'Tomado') {
         updateData.data_hora_realizada = new Date().toISOString();
+        
+        // Decrementar estoque do medicamento
+        const { data: medicamento, error: medicamentoError } = await supabase
+          .from('medicamentos')
+          .select('quantidade_atual, limite_reabastecimento, nome_medicamento')
+          .eq('id', medicamentoId)
+          .single();
+
+        if (medicamentoError) throw medicamentoError;
+
+        if (medicamento && medicamento.quantidade_atual !== null) {
+          const novaQuantidade = medicamento.quantidade_atual - 1;
+          
+          const { error: updateError } = await supabase
+            .from('medicamentos')
+            .update({ quantidade_atual: novaQuantidade })
+            .eq('id', medicamentoId);
+
+          if (updateError) throw updateError;
+
+          // Verificar se precisa alertar sobre reabastecimento
+          if (medicamento.limite_reabastecimento !== null && 
+              novaQuantidade <= medicamento.limite_reabastecimento) {
+            toast.warning(`Estoque de ${medicamento.nome_medicamento} está baixo! Hora de reabastecer.`, {
+              duration: 5000
+            });
+          }
+        }
       }
 
       const { error } = await supabase
