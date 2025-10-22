@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, LogOut, Clock, Pill, User as UserIcon, Users, Settings } from "lucide-react";
+import { Plus, LogOut, Clock, Pill, User as UserIcon, Users, Settings, Edit, ShoppingBag } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import ConfirmarTomada from "@/components/ConfirmarTomada";
 import type { User } from "@supabase/supabase-js";
@@ -35,6 +35,7 @@ const Dashboard = () => {
   const [dosesPorDia, setDosesPorDia] = useState<DosesPorDia>({});
   const [modalAberto, setModalAberto] = useState(false);
   const [doseAtual, setDoseAtual] = useState<ProximaDose | null>(null);
+  const [medicamentosReposicao, setMedicamentosReposicao] = useState<any[]>([]);
   const navigate = useNavigate();
 
   const coresCards = [
@@ -75,6 +76,9 @@ const Dashboard = () => {
   const carregarMedicamentos = async (userId: string) => {
     try {
       const agora = new Date().toISOString();
+      const hoje = new Date().toISOString().split('T')[0];
+
+      // Carregar registros pendentes
       const { data: registrosPendentes, error } = await supabase
         .from('registros_tomada')
         .select(`
@@ -122,6 +126,20 @@ const Dashboard = () => {
         }, {});
 
         setDosesPorDia(grouped);
+      }
+
+      // Verificar medicamentos que precisam ser repostos
+      const { data: medicamentosParaRepor, error: errorReposicao } = await supabase
+        .from('medicamentos')
+        .select('*')
+        .eq('usuario_id', userId)
+        .eq('ativo', true)
+        .eq('data_reposicao', hoje);
+
+      if (errorReposicao) throw errorReposicao;
+
+      if (medicamentosParaRepor) {
+        setMedicamentosReposicao(medicamentosParaRepor);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar medicamentos");
@@ -181,6 +199,32 @@ const Dashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {medicamentosReposicao.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold mb-6 text-destructive">Alertas de Reposição</h2>
+            <div className="space-y-4">
+              {medicamentosReposicao.map((med) => (
+                <Card
+                  key={med.id}
+                  className="p-6 bg-destructive/10 border-destructive border-2"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-destructive rounded-full p-4">
+                      <ShoppingBag className="w-8 h-8 text-destructive-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold mb-1">Repor Medicamento</h3>
+                      <p className="text-xl">
+                        Hoje é dia de comprar mais <span className="font-semibold">{med.nome_medicamento}</span>
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-6">Próximas Doses</h2>
           
@@ -201,17 +245,19 @@ const Dashboard = () => {
                     {doses.map((dose, index) => (
                       <Card
                         key={`${dose.medicamento.id}-${dose.horario}`}
-                        className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02] cursor-pointer`}
-                        onClick={() => {
-                          setDoseAtual(dose);
-                          setModalAberto(true);
-                        }}
+                        className={`p-6 ${coresCards[index % coresCards.length]} border-0 transition-all hover:shadow-[var(--shadow-medium)] hover:scale-[1.02]`}
                       >
                         <div className="flex items-center gap-4">
                           <div className="bg-white/80 rounded-full p-4">
                             <Clock className="w-8 h-8 text-primary" />
                           </div>
-                          <div className="flex-1">
+                          <div 
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              setDoseAtual(dose);
+                              setModalAberto(true);
+                            }}
+                          >
                             <div className="flex items-baseline gap-3 mb-2">
                               <span className="text-4xl font-bold text-foreground">
                                 {dose.horario}
@@ -224,6 +270,17 @@ const Dashboard = () => {
                               {dose.medicamento.dosagem}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-12 w-12 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/editar-medicamento/${dose.medicamento.id}`);
+                            }}
+                          >
+                            <Edit className="w-6 h-6" />
+                          </Button>
                         </div>
                       </Card>
                     ))}
