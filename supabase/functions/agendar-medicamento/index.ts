@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.0";
+import { toZonedTime, fromZonedTime } from "https://esm.sh/date-fns-tz@3.2.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,14 +24,18 @@ serve(async (req) => {
 
     // Calcular lembretes entre data_inicio e data_fim
     const registros = [];
-    const agora = new Date();
+    const timezone = 'America/Sao_Paulo';
+    const agora = toZonedTime(new Date(), timezone);
 
     // Parsear horário inicial
     const [hora, minuto] = horario_inicio.split(':').map(Number);
     
-    // Determinar data de início
-    let dataInicio = data_inicio ? new Date(data_inicio) : new Date(agora);
-    dataInicio.setHours(hora, minuto, 0, 0);
+    // Determinar data de início no timezone do Brasil
+    let dataInicioLocal = data_inicio ? new Date(data_inicio + 'T00:00:00') : new Date(agora);
+    dataInicioLocal.setHours(hora, minuto, 0, 0);
+    
+    // Converter para o timezone do Brasil
+    let dataInicio = toZonedTime(dataInicioLocal, timezone);
     
     // Se a data de início for hoje e o horário já passou, começar do próximo horário
     if (dataInicio.toDateString() === agora.toDateString() && dataInicio < agora) {
@@ -77,17 +82,20 @@ serve(async (req) => {
     }
 
     // Determinar data limite (data_fim ou 90 dias)
-    const dataLimite = data_fim 
-      ? new Date(data_fim) 
+    let dataLimiteLocal = data_fim 
+      ? new Date(data_fim + 'T23:59:59') 
       : new Date(agora.getTime() + 90 * 24 * 60 * 60 * 1000);
-    dataLimite.setHours(23, 59, 59, 999);
+    const dataLimite = toZonedTime(dataLimiteLocal, timezone);
 
     // Gerar todos os registros
     while (dataHoraAtual <= dataLimite) {
+      // Converter para UTC para armazenar no banco
+      const dataHoraUTC = fromZonedTime(dataHoraAtual, timezone);
+      
       registros.push({
         medicamento_id,
         usuario_id,
-        data_hora_prevista: dataHoraAtual.toISOString(),
+        data_hora_prevista: dataHoraUTC.toISOString(),
         status: 'Pendente',
       });
 
