@@ -102,19 +102,26 @@ const Dashboard = () => {
       if (error) throw error;
 
       if (registrosPendentes) {
-        const doses: ProximaDose[] = registrosPendentes.map((reg: any) => ({
-          registroId: reg.id,
-          medicamento: reg.medicamentos,
-          horario: new Date(reg.data_hora_prevista).toLocaleTimeString('pt-BR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          data: new Date(reg.data_hora_prevista).toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-          }),
-        }));
+        const doses: ProximaDose[] = registrosPendentes.map((reg: any) => {
+          // Converter de UTC para o timezone local (Brasil)
+          const dataUTC = new Date(reg.data_hora_prevista);
+          
+          return {
+            registroId: reg.id,
+            medicamento: reg.medicamentos,
+            horario: dataUTC.toLocaleTimeString('pt-BR', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              timeZone: 'America/Sao_Paulo'
+            }),
+            data: dataUTC.toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: 'long',
+              year: 'numeric',
+              timeZone: 'America/Sao_Paulo'
+            }),
+          };
+        });
 
         // Agrupar doses por dia
         const grouped = doses.reduce((acc: DosesPorDia, dose) => {
