@@ -30,12 +30,17 @@ serve(async (req) => {
     // Parsear horário inicial
     const [hora, minuto] = horario_inicio.split(':').map(Number);
     
-    // Determinar data de início no timezone do Brasil
-    let dataInicioLocal = data_inicio ? new Date(data_inicio + 'T00:00:00') : new Date(agora);
-    dataInicioLocal.setHours(hora, minuto, 0, 0);
+    // Criar data de início no timezone do Brasil
+    // Se data_inicio foi fornecida, usar ela, senão usar hoje
+    const dataBase = data_inicio ? data_inicio : agora.toISOString().split('T')[0];
     
-    // Converter para o timezone do Brasil
-    let dataInicio = toZonedTime(dataInicioLocal, timezone);
+    // Criar uma string de data/hora no formato ISO no timezone do Brasil
+    // Exemplo: "2024-01-15T08:42:00" (sem Z, para ser interpretado como local)
+    const dataHoraString = `${dataBase}T${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}:00`;
+    
+    // Criar Date object e converter para timezone do Brasil
+    // fromZonedTime trata a string como se fosse no timezone especificado
+    let dataInicio = fromZonedTime(dataHoraString, timezone);
     
     // Se a data de início for hoje e o horário já passou, começar do próximo horário
     if (dataInicio.toDateString() === agora.toDateString() && dataInicio < agora) {
@@ -82,20 +87,22 @@ serve(async (req) => {
     }
 
     // Determinar data limite (data_fim ou 90 dias)
-    let dataLimiteLocal = data_fim 
-      ? new Date(data_fim + 'T23:59:59') 
-      : new Date(agora.getTime() + 90 * 24 * 60 * 60 * 1000);
-    const dataLimite = toZonedTime(dataLimiteLocal, timezone);
+    let dataLimite: Date;
+    if (data_fim) {
+      const dataLimiteString = `${data_fim}T23:59:59`;
+      dataLimite = fromZonedTime(dataLimiteString, timezone);
+    } else {
+      dataLimite = new Date(agora.getTime() + 90 * 24 * 60 * 60 * 1000);
+    }
 
     // Gerar todos os registros
     while (dataHoraAtual <= dataLimite) {
-      // Converter para UTC para armazenar no banco
-      const dataHoraUTC = fromZonedTime(dataHoraAtual, timezone);
-      
+      // dataHoraAtual já está em UTC (foi criada com fromZonedTime)
+      // Apenas salvamos diretamente
       registros.push({
         medicamento_id,
         usuario_id,
-        data_hora_prevista: dataHoraUTC.toISOString(),
+        data_hora_prevista: dataHoraAtual.toISOString(),
         status: 'Pendente',
       });
 
