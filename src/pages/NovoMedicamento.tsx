@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, X, Save } from "lucide-react";
 
 const NovoMedicamento = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [nome, setNome] = useState("");
   const [dosagem, setDosagem] = useState("");
   const [horarioInicio, setHorarioInicio] = useState("");
@@ -19,7 +20,78 @@ const NovoMedicamento = () => {
   const [dataFim, setDataFim] = useState("");
   const [quantidadeInicial, setQuantidadeInicial] = useState("");
   const [limiteReabastecimento, setLimiteReabastecimento] = useState("");
+  const [quantidadeEmbalagem, setQuantidadeEmbalagem] = useState("");
+  const [diasAntecedenciaReposicao, setDiasAntecedenciaReposicao] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (id) {
+      carregarMedicamento();
+    }
+  }, [id]);
+
+  const carregarMedicamento = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('medicamentos')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setNome(data.nome_medicamento);
+        setDosagem(data.dosagem);
+        setHorarioInicio(data.horario_inicio || "");
+        setFrequenciaNumero(data.frequencia_numero?.toString() || "");
+        setFrequenciaUnidade(data.frequencia_unidade || "horas");
+        setDataInicio(data.data_inicio || "");
+        setDataFim(data.data_fim || "");
+        setQuantidadeInicial(data.quantidade_inicial?.toString() || "");
+        setLimiteReabastecimento(data.limite_reabastecimento?.toString() || "");
+        setQuantidadeEmbalagem(data.quantidade_embalagem?.toString() || "");
+        setDiasAntecedenciaReposicao(data.dias_antecedencia_reposicao?.toString() || "");
+      }
+    } catch (error: any) {
+      toast.error("Erro ao carregar medicamento");
+      console.error(error);
+    }
+  };
+
+  const calcularDataReposicao = () => {
+    if (!quantidadeEmbalagem || !frequenciaNumero || !diasAntecedenciaReposicao || !dataInicio) {
+      return null;
+    }
+
+    const qtdEmbalagem = parseInt(quantidadeEmbalagem);
+    const freq = parseInt(frequenciaNumero);
+    const diasAntecedencia = parseInt(diasAntecedenciaReposicao);
+    
+    // Calcular quantos dias o medicamento vai durar
+    let diasDuracao = 0;
+    switch (frequenciaUnidade) {
+      case 'horas':
+        diasDuracao = Math.floor((qtdEmbalagem * freq) / 24);
+        break;
+      case 'dias':
+        diasDuracao = qtdEmbalagem * freq;
+        break;
+      case 'semanas':
+        diasDuracao = qtdEmbalagem * freq * 7;
+        break;
+      case 'meses':
+        diasDuracao = qtdEmbalagem * freq * 30;
+        break;
+    }
+
+    // Data de reposição = data de início + dias de duração - dias de antecedência
+    const dataInicioDate = new Date(dataInicio);
+    const dataReposicao = new Date(dataInicioDate);
+    dataReposicao.setDate(dataReposicao.getDate() + diasDuracao - diasAntecedencia);
+    
+    return dataReposicao.toISOString().split('T')[0];
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,45 +119,74 @@ const NovoMedicamento = () => {
         return;
       }
 
-      // Criar o medicamento
-      const { data: medicamento, error: medicamentoError } = await supabase
-        .from('medicamentos')
-        .insert({
-          usuario_id: user.id,
-          nome_medicamento: nome,
-          dosagem: dosagem,
-          horario_inicio: horarioInicio,
-          frequencia_numero: parseInt(frequenciaNumero),
-          frequencia_unidade: frequenciaUnidade,
-          data_inicio: dataInicio || null,
-          data_fim: dataFim || null,
-          quantidade_inicial: quantidadeInicial ? parseInt(quantidadeInicial) : null,
-          quantidade_atual: quantidadeInicial ? parseInt(quantidadeInicial) : null,
-          limite_reabastecimento: limiteReabastecimento ? parseInt(limiteReabastecimento) : null,
-        })
-        .select()
-        .single();
+      const dataReposicao = calcularDataReposicao();
 
-      if (medicamentoError) throw medicamentoError;
+      // Criar ou atualizar o medicamento
+      const medicamentoData = {
+        nome_medicamento: nome,
+        dosagem: dosagem,
+        horario_inicio: horarioInicio,
+        frequencia_numero: parseInt(frequenciaNumero),
+        frequencia_unidade: frequenciaUnidade,
+        data_inicio: dataInicio || null,
+        data_fim: dataFim || null,
+        quantidade_inicial: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+        quantidade_atual: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+        limite_reabastecimento: limiteReabastecimento ? parseInt(limiteReabastecimento) : null,
+        quantidade_embalagem: quantidadeEmbalagem ? parseInt(quantidadeEmbalagem) : null,
+        dias_antecedencia_reposicao: diasAntecedenciaReposicao ? parseInt(diasAntecedenciaReposicao) : null,
+        data_reposicao: dataReposicao,
+      };
 
-      // Chamar edge function para agendar os lembretes
-      const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
-        body: {
-          medicamento_id: medicamento.id,
-          usuario_id: user.id,
-          horario_inicio: horarioInicio,
-          frequencia_numero: parseInt(frequenciaNumero),
-          frequencia_unidade: frequenciaUnidade,
-          data_inicio: dataInicio || null,
-          data_fim: dataFim || null,
-        },
-      });
+      let medicamento;
+      if (id) {
+        // Atualizar medicamento existente
+        const { data, error: medicamentoError } = await supabase
+          .from('medicamentos')
+          .update(medicamentoData)
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (agendamentoError) {
-        console.error('Erro ao agendar lembretes:', agendamentoError);
-        toast.error("Medicamento salvo, mas houve erro ao agendar lembretes");
+        if (medicamentoError) throw medicamentoError;
+        medicamento = data;
       } else {
-        toast.success("Medicamento cadastrado e lembretes agendados!");
+        // Criar novo medicamento
+        const { data, error: medicamentoError } = await supabase
+          .from('medicamentos')
+          .insert({
+            ...medicamentoData,
+            usuario_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (medicamentoError) throw medicamentoError;
+        medicamento = data;
+      }
+
+      // Chamar edge function para agendar os lembretes (apenas para novos medicamentos)
+      if (!id) {
+        const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
+          body: {
+            medicamento_id: medicamento.id,
+            usuario_id: user.id,
+            horario_inicio: horarioInicio,
+            frequencia_numero: parseInt(frequenciaNumero),
+            frequencia_unidade: frequenciaUnidade,
+            data_inicio: dataInicio || null,
+            data_fim: dataFim || null,
+          },
+        });
+
+        if (agendamentoError) {
+          console.error('Erro ao agendar lembretes:', agendamentoError);
+          toast.error("Medicamento salvo, mas houve erro ao agendar lembretes");
+        } else {
+          toast.success("Medicamento cadastrado e lembretes agendados!");
+        }
+      } else {
+        toast.success("Medicamento atualizado com sucesso!");
       }
 
       navigate("/dashboard");
@@ -108,7 +209,7 @@ const NovoMedicamento = () => {
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
-          <h1 className="text-2xl font-bold">Novo Medicamento</h1>
+          <h1 className="text-2xl font-bold">{id ? "Editar Medicamento" : "Novo Medicamento"}</h1>
           <Button
             className="ml-auto h-12 px-6 text-lg font-semibold"
             onClick={handleSubmit}
@@ -240,6 +341,43 @@ const NovoMedicamento = () => {
                 />
               </div>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-[var(--shadow-medium)] mt-6">
+          <CardHeader>
+            <CardTitle className="text-2xl">Controle de Estoque</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="quantidade-embalagem" className="text-xl">Quantidade na embalagem</Label>
+                <Input
+                  id="quantidade-embalagem"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 10"
+                  value={quantidadeEmbalagem}
+                  onChange={(e) => setQuantidadeEmbalagem(e.target.value)}
+                  className="h-14 text-lg"
+                />
+                <p className="text-sm text-muted-foreground">Quantas unidades vêm em cada embalagem?</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="dias-antecedencia" className="text-xl">Lembrar de repor com quantos dias de antecedência</Label>
+                <Input
+                  id="dias-antecedencia"
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 2"
+                  value={diasAntecedenciaReposicao}
+                  onChange={(e) => setDiasAntecedenciaReposicao(e.target.value)}
+                  className="h-14 text-lg"
+                />
+                <p className="text-sm text-muted-foreground">Com quantos dias antes do medicamento acabar você quer ser lembrado?</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </main>

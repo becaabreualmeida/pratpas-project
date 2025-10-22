@@ -20,6 +20,8 @@ export type Database = {
           created_at: string
           data_fim: string | null
           data_inicio: string | null
+          data_reposicao: string | null
+          dias_antecedencia_reposicao: number | null
           dosagem: string
           frequencia_numero: number | null
           frequencia_unidade: string | null
@@ -28,6 +30,7 @@ export type Database = {
           limite_reabastecimento: number | null
           nome_medicamento: string
           quantidade_atual: number | null
+          quantidade_embalagem: number | null
           quantidade_inicial: number | null
           updated_at: string
           usuario_id: string
@@ -37,6 +40,8 @@ export type Database = {
           created_at?: string
           data_fim?: string | null
           data_inicio?: string | null
+          data_reposicao?: string | null
+          dias_antecedencia_reposicao?: number | null
           dosagem: string
           frequencia_numero?: number | null
           frequencia_unidade?: string | null
@@ -45,6 +50,7 @@ export type Database = {
           limite_reabastecimento?: number | null
           nome_medicamento: string
           quantidade_atual?: number | null
+          quantidade_embalagem?: number | null
           quantidade_inicial?: number | null
           updated_at?: string
           usuario_id: string
@@ -54,6 +60,8 @@ export type Database = {
           created_at?: string
           data_fim?: string | null
           data_inicio?: string | null
+          data_reposicao?: string | null
+          dias_antecedencia_reposicao?: number | null
           dosagem?: string
           frequencia_numero?: number | null
           frequencia_unidade?: string | null
@@ -62,6 +70,7 @@ export type Database = {
           limite_reabastecimento?: number | null
           nome_medicamento?: string
           quantidade_atual?: number | null
+          quantidade_embalagem?: number | null
           quantidade_inicial?: number | null
           updated_at?: string
           usuario_id?: string
