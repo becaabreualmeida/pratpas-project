@@ -6,7 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, X, Save } from "lucide-react";
+import { ArrowLeft, Plus, X, Save, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const NovoMedicamento = () => {
   const navigate = useNavigate();
@@ -23,6 +34,7 @@ const NovoMedicamento = () => {
   const [quantidadeEmbalagem, setQuantidadeEmbalagem] = useState("");
   const [diasAntecedenciaReposicao, setDiasAntecedenciaReposicao] = useState("");
   const [loading, setLoading] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -91,6 +103,37 @@ const NovoMedicamento = () => {
     dataReposicao.setDate(dataReposicao.getDate() + diasDuracao - diasAntecedencia);
     
     return dataReposicao.toISOString().split('T')[0];
+  };
+
+  const handleExcluir = async () => {
+    if (!id) return;
+    
+    setExcluindo(true);
+    try {
+      // Excluir os registros de tomada associados
+      const { error: errorRegistros } = await supabase
+        .from('registros_tomada')
+        .delete()
+        .eq('medicamento_id', id);
+
+      if (errorRegistros) throw errorRegistros;
+
+      // Excluir o medicamento
+      const { error: errorMedicamento } = await supabase
+        .from('medicamentos')
+        .delete()
+        .eq('id', id);
+
+      if (errorMedicamento) throw errorMedicamento;
+
+      toast.success("Medicamento excluído com sucesso!");
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast.error("Erro ao excluir medicamento");
+      console.error(error);
+    } finally {
+      setExcluindo(false);
+    }
   };
 
 
@@ -210,14 +253,47 @@ const NovoMedicamento = () => {
             <ArrowLeft className="w-6 h-6" />
           </Button>
           <h1 className="text-2xl font-bold">{id ? "Editar Medicamento" : "Novo Medicamento"}</h1>
-          <Button
-            className="ml-auto h-12 px-6 text-lg font-semibold"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            <Save className="w-5 h-5 mr-2" />
-            Salvar
-          </Button>
+          <div className="ml-auto flex gap-2">
+            {id && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="h-12 px-6 text-lg font-semibold"
+                    disabled={excluindo}
+                  >
+                    <Trash2 className="w-5 h-5 mr-2" />
+                    Excluir
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="text-2xl">Confirmar Exclusão</AlertDialogTitle>
+                    <AlertDialogDescription className="text-lg">
+                      Tem certeza que deseja excluir este medicamento? Esta ação não pode ser desfeita e todos os lembretes associados serão removidos.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="h-12 px-6 text-lg">Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                      className="h-12 px-6 text-lg bg-destructive hover:bg-destructive/90"
+                      onClick={handleExcluir}
+                    >
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button
+              className="h-12 px-6 text-lg font-semibold"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              <Save className="w-5 h-5 mr-2" />
+              Salvar
+            </Button>
+          </div>
         </div>
       </header>
 
