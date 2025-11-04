@@ -96,6 +96,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          tipo_perfil: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at: string
         }
         Insert: {
@@ -108,6 +109,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          tipo_perfil?: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at?: string
         }
         Update: {
@@ -120,6 +122,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          tipo_perfil?: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at?: string
         }
         Relationships: []
@@ -169,6 +172,42 @@ export type Database = {
           },
         ]
       }
+      relacionamento_cuidador: {
+        Row: {
+          cuidador_id: string
+          data_vinculo: string
+          id: string
+          idoso_id: string
+        }
+        Insert: {
+          cuidador_id: string
+          data_vinculo?: string
+          id?: string
+          idoso_id: string
+        }
+        Update: {
+          cuidador_id?: string
+          data_vinculo?: string
+          id?: string
+          idoso_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relacionamento_cuidador_cuidador_id_fkey"
+            columns: ["cuidador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relacionamento_cuidador_idoso_id_fkey"
+            columns: ["idoso_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -177,7 +216,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      tipo_perfil: "idoso" | "cuidador"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -304,6 +343,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tipo_perfil: ["idoso", "cuidador"],
+    },
   },
 } as const
