@@ -10,6 +10,8 @@ import NovoMedicamento from "./pages/NovoMedicamento";
 import RecuperarSenha from "./pages/RecuperarSenha";
 import EditarPerfil from "./pages/EditarPerfil";
 import Cuidadores from "./pages/Cuidadores";
+import PacientesMonitorados from "./pages/PacientesMonitorados";
+import HistoricoPaciente from "./pages/HistoricoPaciente";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +31,8 @@ const App = () => (
         <Route path="/recuperar-senha" element={<RecuperarSenha />} />
         <Route path="/editar-perfil" element={<EditarPerfil />} />
         <Route path="/cuidadores" element={<Cuidadores />} />
+        <Route path="/pacientes-monitorados" element={<PacientesMonitorados />} />
+        <Route path="/historico-paciente/:idosoId" element={<HistoricoPaciente />} />
         <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
