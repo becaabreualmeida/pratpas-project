@@ -152,14 +152,24 @@ const PacientesMonitorados = () => {
       <header className="bg-card border-b shadow-[var(--shadow-soft)] sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Pacientes Monitorados</h1>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-5 h-5 mr-2" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => navigate("/editar-perfil")}
+            >
+              <User className="w-5 h-5 mr-2" />
+              Meu Perfil
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-5 h-5 mr-2" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 
