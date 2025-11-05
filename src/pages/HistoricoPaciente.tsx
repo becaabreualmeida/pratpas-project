@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, Clock, CheckCircle, XCircle, MinusCircle, User } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, MinusCircle, User, Plus, AlertTriangle } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 interface Profile {
   nome: string;
@@ -191,6 +192,40 @@ const HistoricoPaciente = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Perfil de Saúde do Paciente */}
+        <Card className="shadow-[var(--shadow-medium)] mb-6">
+          <CardHeader>
+            <CardTitle className="text-2xl flex items-center gap-2">
+              <User className="w-6 h-6" />
+              Perfil de Saúde: {profile?.nome}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <Label className="text-lg font-semibold">Email</Label>
+                <p className="text-muted-foreground">{profile?.email}</p>
+              </div>
+              {profile?.alergias && (
+                <div>
+                  <Label className="text-lg font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-destructive" />
+                    Alergias
+                  </Label>
+                  <p className="text-muted-foreground">{profile.alergias}</p>
+                </div>
+              )}
+            </div>
+            <Button
+              size="lg"
+              onClick={() => navigate(`/adicionar-medicamento/${idosoId}`)}
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Adicionar Medicamento para este Paciente
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Relatório de Adesão */}
         <Card className="shadow-[var(--shadow-medium)] mb-8">
           <CardHeader>
@@ -209,21 +244,6 @@ const HistoricoPaciente = () => {
             </div>
           </CardContent>
         </Card>
-
-        {/* Perfil do Paciente */}
-        {profile?.alergias && (
-          <Card className="shadow-[var(--shadow-medium)] mb-8">
-            <CardHeader>
-              <CardTitle className="text-xl">Informações do Paciente</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <p className="font-semibold">Alergias:</p>
-                <p className="text-muted-foreground">{profile.alergias}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Filtros de Período */}
         <div className="mb-6">
