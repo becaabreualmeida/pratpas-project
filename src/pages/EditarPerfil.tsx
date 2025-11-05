@@ -20,6 +20,7 @@ const EditarPerfil = () => {
   const [contatoEmergenciaTelefone, setContatoEmergenciaTelefone] = useState("");
   const [alergias, setAlergias] = useState("");
   const [condicoesMedicas, setCondicoesMedicas] = useState("");
+  const [tipoPerfil, setTipoPerfil] = useState<string | null>(null);
 
   useEffect(() => {
     carregarPerfil();
@@ -51,6 +52,7 @@ const EditarPerfil = () => {
         setContatoEmergenciaTelefone(profile.contato_emergencia_telefone || "");
         setAlergias(profile.alergias || "");
         setCondicoesMedicas(profile.condicoes_medicas || "");
+        setTipoPerfil(profile.tipo_perfil || null);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar perfil");
@@ -174,63 +176,67 @@ const EditarPerfil = () => {
                 />
               </div>
 
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-xl font-semibold mb-4">Contato de Emergência</h3>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contato-nome" className="text-xl">Nome</Label>
-                    <Input
-                      id="contato-nome"
-                      type="text"
-                      placeholder="Nome do contato"
-                      value={contatoEmergenciaNome}
-                      onChange={(e) => setContatoEmergenciaNome(e.target.value)}
-                      className="h-14 text-lg"
-                    />
+              {tipoPerfil === "idoso" && (
+                <>
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-xl font-semibold mb-4">Contato de Emergência</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="contato-nome" className="text-xl">Nome</Label>
+                        <Input
+                          id="contato-nome"
+                          type="text"
+                          placeholder="Nome do contato"
+                          value={contatoEmergenciaNome}
+                          onChange={(e) => setContatoEmergenciaNome(e.target.value)}
+                          className="h-14 text-lg"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contato-telefone" className="text-xl">Telefone</Label>
+                        <Input
+                          id="contato-telefone"
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          value={contatoEmergenciaTelefone}
+                          onChange={(e) => setContatoEmergenciaTelefone(e.target.value)}
+                          className="h-14 text-lg"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="contato-telefone" className="text-xl">Telefone</Label>
-                    <Input
-                      id="contato-telefone"
-                      type="tel"
-                      placeholder="(00) 00000-0000"
-                      value={contatoEmergenciaTelefone}
-                      onChange={(e) => setContatoEmergenciaTelefone(e.target.value)}
-                      className="h-14 text-lg"
-                    />
-                  </div>
-                </div>
-              </div>
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-xl font-semibold mb-4">Informações de Saúde</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="alergias" className="text-xl">Alergias Conhecidas</Label>
+                        <Textarea
+                          id="alergias"
+                          placeholder="Descreva suas alergias conhecidas..."
+                          value={alergias}
+                          onChange={(e) => setAlergias(e.target.value)}
+                          className="min-h-24 text-lg"
+                        />
+                      </div>
 
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-xl font-semibold mb-4">Informações de Saúde</h3>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="alergias" className="text-xl">Alergias Conhecidas</Label>
-                    <Textarea
-                      id="alergias"
-                      placeholder="Descreva suas alergias conhecidas..."
-                      value={alergias}
-                      onChange={(e) => setAlergias(e.target.value)}
-                      className="min-h-24 text-lg"
-                    />
+                      <div className="space-y-2">
+                        <Label htmlFor="condicoes" className="text-xl">Condições Médicas</Label>
+                        <Textarea
+                          id="condicoes"
+                          placeholder="Descreva suas condições médicas relevantes..."
+                          value={condicoesMedicas}
+                          onChange={(e) => setCondicoesMedicas(e.target.value)}
+                          className="min-h-24 text-lg"
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="condicoes" className="text-xl">Condições Médicas</Label>
-                    <Textarea
-                      id="condicoes"
-                      placeholder="Descreva suas condições médicas relevantes..."
-                      value={condicoesMedicas}
-                      onChange={(e) => setCondicoesMedicas(e.target.value)}
-                      className="min-h-24 text-lg"
-                    />
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </form>
           </CardContent>
         </Card>

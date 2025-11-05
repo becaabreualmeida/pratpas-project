@@ -12,6 +12,7 @@ import EditarPerfil from "./pages/EditarPerfil";
 import Cuidadores from "./pages/Cuidadores";
 import PacientesMonitorados from "./pages/PacientesMonitorados";
 import HistoricoPaciente from "./pages/HistoricoPaciente";
+import AdicionarMedicamentoCuidador from "./pages/AdicionarMedicamentoCuidador";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,7 +33,8 @@ const App = () => (
         <Route path="/editar-perfil" element={<EditarPerfil />} />
         <Route path="/cuidadores" element={<Cuidadores />} />
         <Route path="/pacientes-monitorados" element={<PacientesMonitorados />} />
-        <Route path="/historico-paciente/:idosoId" element={<HistoricoPaciente />} />
+        <Route path="/gerenciamento-paciente/:idosoId" element={<HistoricoPaciente />} />
+        <Route path="/adicionar-medicamento/:pacienteId" element={<AdicionarMedicamentoCuidador />} />
         <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
