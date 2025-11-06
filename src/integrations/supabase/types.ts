@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      codigos_convite: {
+        Row: {
+          codigo: string
+          created_at: string | null
+          data_expiracao: string
+          id: string
+          paciente_id: string
+          usado: boolean | null
+        }
+        Insert: {
+          codigo: string
+          created_at?: string | null
+          data_expiracao: string
+          id?: string
+          paciente_id: string
+          usado?: boolean | null
+        }
+        Update: {
+          codigo?: string
+          created_at?: string | null
+          data_expiracao?: string
+          id?: string
+          paciente_id?: string
+          usado?: boolean | null
+        }
+        Relationships: []
+      }
       medicamentos: {
         Row: {
           ativo: boolean
@@ -96,6 +123,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          permite_auto_cadastro: boolean | null
           tipo_perfil: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at: string
         }
@@ -109,6 +137,7 @@ export type Database = {
           email: string
           id: string
           nome: string
+          permite_auto_cadastro?: boolean | null
           tipo_perfil?: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at?: string
         }
@@ -122,6 +151,7 @@ export type Database = {
           email?: string
           id?: string
           nome?: string
+          permite_auto_cadastro?: boolean | null
           tipo_perfil?: Database["public"]["Enums"]["tipo_perfil"] | null
           updated_at?: string
         }
@@ -207,6 +237,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      solicitacoes_medicamento: {
+        Row: {
+          created_at: string | null
+          data_fim: string | null
+          data_inicio: string | null
+          dias_antecedencia_reposicao: number | null
+          dosagem: string
+          frequencia_numero: number | null
+          frequencia_unidade: string | null
+          horario_inicio: string | null
+          id: string
+          limite_reabastecimento: number | null
+          nome_medicamento: string
+          paciente_id: string
+          quantidade_atual: number | null
+          quantidade_embalagem: number | null
+          quantidade_inicial: number | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          dias_antecedencia_reposicao?: number | null
+          dosagem: string
+          frequencia_numero?: number | null
+          frequencia_unidade?: string | null
+          horario_inicio?: string | null
+          id?: string
+          limite_reabastecimento?: number | null
+          nome_medicamento: string
+          paciente_id: string
+          quantidade_atual?: number | null
+          quantidade_embalagem?: number | null
+          quantidade_inicial?: number | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_fim?: string | null
+          data_inicio?: string | null
+          dias_antecedencia_reposicao?: number | null
+          dosagem?: string
+          frequencia_numero?: number | null
+          frequencia_unidade?: string | null
+          horario_inicio?: string | null
+          id?: string
+          limite_reabastecimento?: number | null
+          nome_medicamento?: string
+          paciente_id?: string
+          quantidade_atual?: number | null
+          quantidade_embalagem?: number | null
+          quantidade_inicial?: number | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

@@ -8,9 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft, Save, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EditarPerfil = () => {
   const navigate = useNavigate();
+  const { tipoPerfil } = useAuth();
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [nome, setNome] = useState("");
@@ -20,7 +22,6 @@ const EditarPerfil = () => {
   const [contatoEmergenciaTelefone, setContatoEmergenciaTelefone] = useState("");
   const [alergias, setAlergias] = useState("");
   const [condicoesMedicas, setCondicoesMedicas] = useState("");
-  const [tipoPerfil, setTipoPerfil] = useState<string | null>(null);
 
   useEffect(() => {
     carregarPerfil();
@@ -52,7 +53,6 @@ const EditarPerfil = () => {
         setContatoEmergenciaTelefone(profile.contato_emergencia_telefone || "");
         setAlergias(profile.alergias || "");
         setCondicoesMedicas(profile.condicoes_medicas || "");
-        setTipoPerfil(profile.tipo_perfil || null);
       }
     } catch (error: any) {
       toast.error("Erro ao carregar perfil");
@@ -90,7 +90,12 @@ const EditarPerfil = () => {
       if (error) throw error;
 
       toast.success("Perfil atualizado com sucesso!");
-      navigate("/dashboard");
+      // Redirecionar para o dashboard correto baseado no tipo de perfil
+      if (tipoPerfil === "cuidador") {
+        navigate("/pacientes-monitorados");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       toast.error("Erro ao atualizar perfil");
       console.error(error);
@@ -117,7 +122,14 @@ const EditarPerfil = () => {
           <Button
             variant="ghost"
             size="lg"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              // Voltar para o dashboard correto baseado no tipo de perfil
+              if (tipoPerfil === "cuidador") {
+                navigate("/pacientes-monitorados");
+              } else {
+                navigate("/dashboard");
+              }
+            }}
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>

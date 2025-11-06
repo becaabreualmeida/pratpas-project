@@ -3,10 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Users, Trash2, UserPlus, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Trash2, RefreshCw, Loader2, Copy, Clock } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { User } from "@supabase/supabase-js";
 
@@ -21,8 +19,9 @@ const Cuidadores = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [cuidadores, setCuidadores] = useState<Cuidador[]>([]);
-  const [emailCuidador, setEmailCuidador] = useState("");
-  const [adicionando, setAdicionando] = useState(false);
+  const [codigoAtual, setCodigoAtual] = useState<string | null>(null);
+  const [gerandoCodigo, setGerandoCodigo] = useState(false);
+  const [tempoRestante, setTempoRestante] = useState<number>(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -84,61 +83,66 @@ const Cuidadores = () => {
     }
   };
 
-  const handleAdicionarCuidador = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdicionarCuidador = async () => {
+    if (!user) return;
     
-    if (!user || !emailCuidador.trim()) {
-      toast.error("Por favor, digite um email válido");
+    setGerandoCodigo(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('gerar-codigo-convite', {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      setCodigoAtual(data.codigo);
+      
+      // Calcular tempo restante (10 minutos em segundos)
+      const dataExpiracao = new Date(data.data_expiracao);
+      const agora = new Date();
+      const diff = Math.floor((dataExpiracao.getTime() - agora.getTime()) / 1000);
+      setTempoRestante(diff);
+
+      toast.success("Código gerado com sucesso!");
+    } catch (error: any) {
+      toast.error("Erro ao gerar código");
+      console.error("Erro:", error);
+    } finally {
+      setGerandoCodigo(false);
+    }
+  };
+
+  // Atualizar o tempo restante a cada segundo
+  useEffect(() => {
+    if (tempoRestante <= 0) {
+      setCodigoAtual(null);
       return;
     }
 
-    setAdicionando(true);
-
-    try {
-      // Buscar o usuário cuidador pelo email
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, tipo_perfil')
-        .eq('email', emailCuidador.trim())
-        .single();
-
-      if (profileError || !profileData) {
-        toast.error("Usuário não encontrado com este email");
-        setAdicionando(false);
-        return;
-      }
-
-      if (profileData.tipo_perfil !== 'cuidador') {
-        toast.error("Este usuário não está cadastrado como cuidador");
-        setAdicionando(false);
-        return;
-      }
-
-      // Criar o relacionamento
-      const { error: insertError } = await supabase
-        .from('relacionamento_cuidador')
-        .insert({
-          idoso_id: user.id,
-          cuidador_id: profileData.id,
-        });
-
-      if (insertError) {
-        if (insertError.code === '23505') {
-          toast.error("Este cuidador já está vinculado");
-        } else {
-          throw insertError;
+    const timer = setInterval(() => {
+      setTempoRestante((prev) => {
+        if (prev <= 1) {
+          setCodigoAtual(null);
+          return 0;
         }
-      } else {
-        toast.success("Cuidador adicionado com sucesso!");
-        setEmailCuidador("");
-        await carregarCuidadores(user.id);
-      }
-    } catch (error: any) {
-      toast.error("Erro ao adicionar cuidador");
-      console.error("Erro:", error.message);
-    } finally {
-      setAdicionando(false);
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [tempoRestante]);
+
+  const copiarCodigo = () => {
+    if (codigoAtual) {
+      navigator.clipboard.writeText(codigoAtual);
+      toast.success("Código copiado!");
     }
+  };
+
+  const formatarTempo = (segundos: number) => {
+    const mins = Math.floor(segundos / 60);
+    const secs = segundos % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleRemoverCuidador = async (relacionamentoId: string) => {
@@ -185,46 +189,71 @@ const Cuidadores = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Formulário para adicionar cuidador */}
+        {/* Formulário para gerar código */}
         <Card className="shadow-[var(--shadow-medium)] mb-8">
           <CardHeader>
             <CardTitle className="text-2xl">Adicionar Cuidador</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAdicionarCuidador} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-lg">Email do Cuidador</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="email@cuidador.com"
-                  value={emailCuidador}
-                  onChange={(e) => setEmailCuidador(e.target.value)}
-                  required
-                  className="h-12 text-lg"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Digite o email de uma pessoa cadastrada como cuidador
-                </p>
-              </div>
-              <Button
-                type="submit"
-                className="w-full h-12 text-lg"
-                disabled={adicionando}
-              >
-                {adicionando ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Adicionando...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="mr-2 h-5 w-5" />
-                    Adicionar Cuidador
-                  </>
-                )}
-              </Button>
-            </form>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Gere um código de 5 dígitos para compartilhar com seu cuidador. 
+                O código expira em 10 minutos.
+              </p>
+              
+              {codigoAtual ? (
+                <div className="space-y-4">
+                  <div className="bg-primary/10 border-2 border-primary rounded-lg p-6 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">Seu código de convite:</p>
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      <span className="text-5xl font-bold tracking-wider text-primary">
+                        {codigoAtual}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={copiarCodigo}
+                        className="h-12 w-12"
+                      >
+                        <Copy className="w-6 h-6" />
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      <span>Expira em: {formatarTempo(tempoRestante)}</span>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    onClick={handleAdicionarCuidador}
+                    variant="outline"
+                    className="w-full h-12 text-lg"
+                    disabled={gerandoCodigo}
+                  >
+                    <RefreshCw className="mr-2 h-5 w-5" />
+                    Gerar Novo Código
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleAdicionarCuidador}
+                  className="w-full h-12 text-lg"
+                  disabled={gerandoCodigo}
+                >
+                  {gerandoCodigo ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-5 w-5" />
+                      Gerar Código de Convite
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
