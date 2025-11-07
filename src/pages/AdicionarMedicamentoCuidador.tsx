@@ -219,33 +219,27 @@ const AdicionarMedicamentoCuidador = () => {
         data_reposicao: dataReposicao,
       };
 
-      const { data: medicamento, error: medicamentoError } = await supabase
-        .from('medicamentos')
-        .insert(medicamentoData)
-        .select()
-        .single();
-
-      if (medicamentoError) throw medicamentoError;
-
-      // Agendar lembretes
-      const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
+      const { data: result, error: funcError } = await supabase.functions.invoke('criar-medicamento-cuidador', {
         body: {
-          medicamento_id: medicamento.id,
-          usuario_id: pacienteId,
+          paciente_id: pacienteId,
+          nome_medicamento: nome,
+          dosagem,
           horario_inicio: horarioInicio,
           frequencia_numero: parseInt(frequenciaNumero),
           frequencia_unidade: frequenciaUnidade,
           data_inicio: dataInicio || null,
           data_fim: dataFim || null,
+          quantidade_inicial: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+          limite_reabastecimento: limiteReabastecimento ? parseInt(limiteReabastecimento) : null,
+          quantidade_embalagem: quantidadeEmbalagem ? parseInt(quantidadeEmbalagem) : null,
+          dias_antecedencia_reposicao: diasAntecedenciaReposicao ? parseInt(diasAntecedenciaReposicao) : null,
+          data_reposicao: dataReposicao,
         },
       });
 
-      if (agendamentoError) {
-        console.error('Erro ao agendar lembretes:', agendamentoError);
-        toast.error("Medicamento salvo, mas houve erro ao agendar lembretes");
-      } else {
-        toast.success("Medicamento adicionado com sucesso!");
-      }
+      if (funcError) throw funcError;
+
+      toast.success('Medicamento adicionado com sucesso!');
 
       navigate(`/gerenciamento-paciente/${pacienteId}`);
     } catch (error: any) {

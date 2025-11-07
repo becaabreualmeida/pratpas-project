@@ -21,7 +21,8 @@ Deno.serve(async (req) => {
       throw new Error('Ação inválida');
     }
 
-    const supabaseClient = createClient(
+    // Cliente autenticado para identificar o usuário (usa o JWT do cuidador)
+    const authClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
@@ -31,8 +32,14 @@ Deno.serve(async (req) => {
       }
     );
 
+    // Cliente com chave de serviço para operações administrativas (bypass de RLS)
+    const serviceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Verificar autenticação (cuidador)
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: userError } = await authClient.auth.getUser();
     if (userError || !user) {
       throw new Error('Não autenticado');
     }
@@ -40,7 +47,7 @@ Deno.serve(async (req) => {
     console.log('Processando solicitação:', solicitacao_id, 'ação:', acao);
 
     // Buscar solicitação
-    const { data: solicitacao, error: solicitacaoError } = await supabaseClient
+    const { data: solicitacao, error: solicitacaoError } = await serviceClient
       .from('solicitacoes_medicamento')
       .select('*')
       .eq('id', solicitacao_id)
@@ -52,7 +59,7 @@ Deno.serve(async (req) => {
     }
 
     // Verificar se o cuidador tem permissão
-    const { data: vinculo } = await supabaseClient
+    const { data: vinculo } = await serviceClient
       .from('relacionamento_cuidador')
       .select('*')
       .eq('cuidador_id', user.id)
@@ -65,7 +72,7 @@ Deno.serve(async (req) => {
 
     if (acao === 'rejeitar') {
       // Apenas atualizar status
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await serviceClient
         .from('solicitacoes_medicamento')
         .update({ status: 'rejeitado' })
         .eq('id', solicitacao_id);
@@ -87,7 +94,7 @@ Deno.serve(async (req) => {
     }
 
     // Aprovar: criar medicamento
-    const { data: medicamento, error: medError } = await supabaseClient
+    const { data: medicamento, error: medError } = await serviceClient
       .from('medicamentos')
       .insert({
         usuario_id: solicitacao.paciente_id,
@@ -114,7 +121,7 @@ Deno.serve(async (req) => {
     }
 
     // Chamar edge function para agendar registros
-    const { error: agendarError } = await supabaseClient.functions.invoke(
+    const { error: agendarError } = await authClient.functions.invoke(
       'agendar-medicamento',
       {
         body: { medicamento_id: medicamento.id },
@@ -126,7 +133,7 @@ Deno.serve(async (req) => {
     }
 
     // Atualizar status da solicitação
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await serviceClient
       .from('solicitacoes_medicamento')
       .update({ status: 'aprovado' })
       .eq('id', solicitacao_id);
@@ -147,7 +154,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Erro:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message ?? 'Erro inesperado' }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
