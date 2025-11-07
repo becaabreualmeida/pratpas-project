@@ -35,8 +35,30 @@ const NovoMedicamento = () => {
   const [diasAntecedenciaReposicao, setDiasAntecedenciaReposicao] = useState("");
   const [loading, setLoading] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [permiteCadastro, setPermiteCadastro] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
+    const checkUserPermissions = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        
+        // Buscar perfil do usuário
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('permite_auto_cadastro')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setPermiteCadastro(profile.permite_auto_cadastro ?? true);
+        }
+      }
+    };
+
+    checkUserPermissions();
+
     if (id) {
       carregarMedicamento();
     }
@@ -164,7 +186,6 @@ const NovoMedicamento = () => {
 
       const dataReposicao = calcularDataReposicao();
 
-      // Criar ou atualizar o medicamento
       const medicamentoData = {
         nome_medicamento: nome,
         dosagem: dosagem,
@@ -181,9 +202,8 @@ const NovoMedicamento = () => {
         data_reposicao: dataReposicao,
       };
 
-      let medicamento;
+      // Se for edição, atualizar normalmente
       if (id) {
-        // Atualizar medicamento existente
         const { data, error: medicamentoError } = await supabase
           .from('medicamentos')
           .update(medicamentoData)
@@ -192,10 +212,29 @@ const NovoMedicamento = () => {
           .single();
 
         if (medicamentoError) throw medicamentoError;
-        medicamento = data;
+        toast.success("Medicamento atualizado com sucesso!");
+        navigate("/dashboard");
+        return;
+      }
+
+      // Se for novo medicamento, verificar permissão
+      if (!permiteCadastro) {
+        // Criar solicitação para aprovação do cuidador
+        const { error: solicitacaoError } = await supabase
+          .from('solicitacoes_medicamento')
+          .insert({
+            ...medicamentoData,
+            paciente_id: user.id,
+            status: 'pendente',
+          });
+
+        if (solicitacaoError) throw solicitacaoError;
+        
+        toast.success("Solicitação enviada para aprovação do seu cuidador");
+        navigate("/dashboard");
       } else {
-        // Criar novo medicamento
-        const { data, error: medicamentoError } = await supabase
+        // Criar medicamento diretamente
+        const { data: medicamento, error: medicamentoError } = await supabase
           .from('medicamentos')
           .insert({
             ...medicamentoData,
@@ -205,11 +244,8 @@ const NovoMedicamento = () => {
           .single();
 
         if (medicamentoError) throw medicamentoError;
-        medicamento = data;
-      }
 
-      // Chamar edge function para agendar os lembretes (apenas para novos medicamentos)
-      if (!id) {
+        // Agendar lembretes
         const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
           body: {
             medicamento_id: medicamento.id,
@@ -228,11 +264,9 @@ const NovoMedicamento = () => {
         } else {
           toast.success("Medicamento cadastrado e lembretes agendados!");
         }
-      } else {
-        toast.success("Medicamento atualizado com sucesso!");
-      }
 
-      navigate("/dashboard");
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       toast.error("Erro ao cadastrar medicamento");
       console.error(error);
