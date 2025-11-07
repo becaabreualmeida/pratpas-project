@@ -64,8 +64,14 @@ Deno.serve(async (req) => {
       throw new Error('Você já está vinculado a este paciente');
     }
 
-    // Criar relacionamento
-    const { error: relacionamentoError } = await supabaseClient
+    // Criar cliente com service role para bypass de RLS
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    );
+
+    // Criar relacionamento usando service role
+    const { error: relacionamentoError } = await supabaseAdmin
       .from('relacionamento_cuidador')
       .insert({
         cuidador_id: user.id,
@@ -78,7 +84,7 @@ Deno.serve(async (req) => {
     }
 
     // Marcar código como usado
-    const { error: updateError } = await supabaseClient
+    const { error: updateError } = await supabaseAdmin
       .from('codigos_convite')
       .update({ usado: true })
       .eq('id', codigoData.id);
