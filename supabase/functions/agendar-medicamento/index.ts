@@ -111,7 +111,8 @@ serve(async (req) => {
 
     console.log(`Criando ${registros.length} registros de tomada`);
 
-    // Inserir registros no banco
+    // Inserir registros no banco usando service role para bypass de RLS
+    // (cuidador inserindo registros para paciente)
     const { data, error } = await supabase
       .from('registros_tomada')
       .insert(registros);
