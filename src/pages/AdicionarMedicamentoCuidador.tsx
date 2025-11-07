@@ -98,17 +98,44 @@ const AdicionarMedicamentoCuidador = () => {
       if (profileError) throw profileError;
       setPaciente(profileData);
 
-      // Carregar medicamentos atuais do paciente
+      // Carregar medicamentos atuais do paciente que ainda têm doses pendentes
       const hoje = new Date().toISOString().split('T')[0];
       const { data: medicamentos, error: medsError } = await supabase
         .from('medicamentos')
-        .select('nome_medicamento, dosagem, data_fim')
+        .select(`
+          nome_medicamento, 
+          dosagem, 
+          data_fim,
+          id
+        `)
         .eq('usuario_id', pacienteId)
         .or(`data_fim.is.null,data_fim.gte.${hoje}`)
         .eq('ativo', true);
 
       if (medsError) throw medsError;
-      setMedicamentosAtuais(medicamentos || []);
+
+      // Filtrar apenas medicamentos que têm doses pendentes
+      const medicamentosComDosesPendentes = [];
+      if (medicamentos) {
+        for (const med of medicamentos) {
+          const { data: registrosPendentes } = await supabase
+            .from('registros_tomada')
+            .select('id')
+            .eq('medicamento_id', med.id)
+            .eq('status', 'Pendente')
+            .limit(1);
+
+          if (registrosPendentes && registrosPendentes.length > 0) {
+            medicamentosComDosesPendentes.push({
+              nome_medicamento: med.nome_medicamento,
+              dosagem: med.dosagem,
+              data_fim: med.data_fim
+            });
+          }
+        }
+      }
+      
+      setMedicamentosAtuais(medicamentosComDosesPendentes);
 
     } catch (error: any) {
       toast.error("Erro ao carregar dados do paciente");
