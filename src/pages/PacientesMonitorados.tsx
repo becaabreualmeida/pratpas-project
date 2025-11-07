@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ArrowLeft, Users, User, LogOut, Eye, X } from "lucide-react";
+import { ArrowLeft, Users, User, LogOut, Eye, X, UserPlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +35,8 @@ const PacientesMonitorados = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [idosos, setIdosos] = useState<Idoso[]>([]);
+  const [codigo, setCodigo] = useState("");
+  const [vinculando, setVinculando] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -130,6 +134,35 @@ const PacientesMonitorados = () => {
     }
   };
 
+  const handleVincularPorCodigo = async () => {
+    if (!codigo || codigo.length !== 5) {
+      toast.error("Digite um código válido de 5 dígitos");
+      return;
+    }
+
+    setVinculando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vincular-paciente-codigo', {
+        body: { codigo },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(`Paciente ${data.paciente_nome} vinculado com sucesso!`);
+        setCodigo("");
+        if (user) await carregarIdosos(user.id);
+      } else {
+        toast.error(data.message || "Código inválido ou expirado");
+      }
+    } catch (error: any) {
+      toast.error("Erro ao vincular paciente");
+      console.error("Erro:", error);
+    } finally {
+      setVinculando(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Você saiu da sua conta");
@@ -174,6 +207,44 @@ const PacientesMonitorados = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        {/* Seção de Adicionar Paciente */}
+        <Card className="shadow-[var(--shadow-medium)] mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-primary/10 rounded-full p-3">
+                <UserPlus className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold">Adicionar Paciente</h3>
+                <p className="text-sm text-muted-foreground">Digite o código de 5 dígitos fornecido pelo paciente</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <Label htmlFor="codigo" className="sr-only">Código de 5 dígitos</Label>
+                <Input
+                  id="codigo"
+                  type="text"
+                  placeholder="Digite o código (ex: 12345)"
+                  value={codigo}
+                  onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+                  maxLength={5}
+                  className="h-12 text-lg text-center tracking-widest font-mono"
+                />
+              </div>
+              <Button
+                size="lg"
+                onClick={handleVincularPorCodigo}
+                disabled={vinculando || codigo.length !== 5}
+                className="px-8"
+              >
+                <UserPlus className="w-5 h-5 mr-2" />
+                Vincular Paciente
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="mb-6">
           <h2 className="text-2xl font-bold mb-2">Meus Pacientes</h2>
           <p className="text-muted-foreground">
