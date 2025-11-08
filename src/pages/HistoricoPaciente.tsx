@@ -31,27 +31,52 @@ interface RegistroPorDia {
 }
 
 const HistoricoPaciente = () => {
-  const { idosoId } = useParams<{ idosoId: string }>();
+  const { usuarioId } = useParams<{ usuarioId: string }>();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [registros, setRegistros] = useState<RegistroPorDia>({});
   const [filtro, setFiltro] = useState<"dia" | "semana" | "mes">("semana");
   const [adesao, setAdesao] = useState<number>(0);
+  const [isCuidador, setIsCuidador] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (idosoId) {
-      carregarDados();
+    if (usuarioId) {
+      verificarPerfilECarregarDados();
     }
-  }, [idosoId, filtro]);
+  }, [usuarioId, filtro]);
+
+  const verificarPerfilECarregarDados = async () => {
+    try {
+      // Verificar se é o próprio usuário ou se é cuidador vendo paciente
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('tipo_perfil')
+        .eq('id', user.id)
+        .single();
+
+      setIsCuidador(currentProfile?.tipo_perfil === 'cuidador' && user.id !== usuarioId);
+      
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao verificar perfil:', error);
+      navigate('/dashboard');
+    }
+  };
 
   const carregarDados = async () => {
     try {
-      // Carregar perfil do idoso
+      // Carregar perfil do usuário
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('nome, email, alergias')
-        .eq('id', idosoId)
+        .eq('id', usuarioId)
         .single();
 
       if (profileError) throw profileError;
@@ -82,7 +107,7 @@ const HistoricoPaciente = () => {
             dosagem
           )
         `)
-        .eq('usuario_id', idosoId)
+        .eq('usuario_id', usuarioId)
         .gte('data_hora_prevista', dataInicio.toISOString())
         .lte('data_hora_prevista', agora.toISOString())
         .order('data_hora_prevista', { ascending: false });
@@ -117,7 +142,7 @@ const HistoricoPaciente = () => {
       const { data: registros7Dias } = await supabase
         .from('registros_tomada')
         .select('status')
-        .eq('usuario_id', idosoId)
+        .eq('usuario_id', usuarioId)
         .gte('data_hora_prevista', dataInicio7Dias.toISOString())
         .lte('data_hora_prevista', agora.toISOString())
         .in('status', ['Tomado', 'Pulado']);
@@ -180,7 +205,7 @@ const HistoricoPaciente = () => {
           <Button
             variant="ghost"
             size="lg"
-            onClick={() => navigate("/pacientes-monitorados")}
+            onClick={() => navigate(isCuidador ? "/pacientes-monitorados" : "/dashboard")}
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
@@ -193,38 +218,40 @@ const HistoricoPaciente = () => {
 
       <main className="container mx-auto px-4 py-8">
         {/* Perfil de Saúde do Paciente */}
-        <Card className="shadow-[var(--shadow-medium)] mb-6">
-          <CardHeader>
-            <CardTitle className="text-2xl flex items-center gap-2">
-              <User className="w-6 h-6" />
-              Perfil de Saúde: {profile?.nome}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <Label className="text-lg font-semibold">Email</Label>
-                <p className="text-muted-foreground">{profile?.email}</p>
-              </div>
-              {profile?.alergias && (
+        {isCuidador && (
+          <Card className="shadow-[var(--shadow-medium)] mb-6">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <User className="w-6 h-6" />
+                Perfil de Saúde: {profile?.nome}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <Label className="text-lg font-semibold flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-destructive" />
-                    Alergias
-                  </Label>
-                  <p className="text-muted-foreground">{profile.alergias}</p>
+                  <Label className="text-lg font-semibold">Email</Label>
+                  <p className="text-muted-foreground">{profile?.email}</p>
                 </div>
-              )}
-            </div>
-            <Button
-              size="lg"
-              onClick={() => navigate(`/adicionar-medicamento/${idosoId}`)}
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              Adicionar Medicamento para este Paciente
-            </Button>
-          </CardContent>
-        </Card>
+                {profile?.alergias && (
+                  <div>
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-destructive" />
+                      Alergias
+                    </Label>
+                    <p className="text-muted-foreground">{profile.alergias}</p>
+                  </div>
+                )}
+              </div>
+              <Button
+                size="lg"
+                onClick={() => navigate(`/adicionar-medicamento/${usuarioId}`)}
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Adicionar Medicamento para este Paciente
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Relatório de Adesão */}
         <Card className="shadow-[var(--shadow-medium)] mb-8">
