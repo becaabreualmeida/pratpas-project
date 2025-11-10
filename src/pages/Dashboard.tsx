@@ -212,13 +212,19 @@ const Dashboard = () => {
       const agora = new Date();
        const hojeStr = agora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).split('/').reverse().join('-'); // Formato YYYY-MM-DD para Supabase date
 
+      // Verificar se o usuário é cuidador
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tipo_perfil')
+        .eq('id', userId)
+        .single();
 
-      // Carregar registros pendentes a partir da hora atual
-      const { data: registrosPendentes, error } = await supabase
+      let query = supabase
         .from('registros_tomada')
         .select(`
           id,
           data_hora_prevista,
+          usuario_id,
           medicamentos (
             id,
             nome_medicamento,
@@ -231,11 +237,33 @@ const Dashboard = () => {
             limite_reabastecimento
           )
         `)
-        .eq('usuario_id', userId)
         .eq('status', 'Pendente')
-        .gte('data_hora_prevista', agora.toISOString()) // Busca a partir de agora
+        .gte('data_hora_prevista', agora.toISOString())
         .order('data_hora_prevista', { ascending: true })
-        .limit(20); // Limita o número de doses futuras exibidas
+        .limit(20);
+
+      // Se for cuidador, busca registros dos seus pacientes
+      if (profile?.tipo_perfil === 'cuidador') {
+        const { data: pacientes } = await supabase
+          .from('relacionamento_cuidador')
+          .select('idoso_id')
+          .eq('cuidador_id', userId);
+
+        if (pacientes && pacientes.length > 0) {
+          const pacienteIds = pacientes.map(p => p.idoso_id);
+          query = query.in('usuario_id', pacienteIds);
+        } else {
+          // Se não tiver pacientes, retorna vazio
+          setDosesPorDia({});
+          setMedicamentosReposicao([]);
+          return;
+        }
+      } else {
+        // Se for idoso, busca apenas seus próprios medicamentos
+        query = query.eq('usuario_id', userId);
+      }
+
+      const { data: registrosPendentes, error } = await query;
 
       if (error) {
         console.error("Erro ao buscar registros:", error); // Log detalhado do erro
@@ -335,6 +363,10 @@ const Dashboard = () => {
                 <DropdownMenuItem onClick={() => navigate("/cuidadores")} className="text-lg py-3">
                   <Users className="w-5 h-5 mr-2" />
                   Gerenciar Cuidadores
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate(`/historico/${user?.id}`)} className="text-lg py-3">
+                  <Clock className="w-5 h-5 mr-2" />
+                  Meu Histórico
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout} className="text-lg py-3">
                   <LogOut className="w-5 h-5 mr-2" />

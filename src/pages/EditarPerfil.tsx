@@ -8,9 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ArrowLeft, Save, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const EditarPerfil = () => {
   const navigate = useNavigate();
+  const { tipoPerfil } = useAuth();
   const [loading, setLoading] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [nome, setNome] = useState("");
@@ -88,7 +90,12 @@ const EditarPerfil = () => {
       if (error) throw error;
 
       toast.success("Perfil atualizado com sucesso!");
-      navigate("/dashboard");
+      // Redirecionar para o dashboard correto baseado no tipo de perfil
+      if (tipoPerfil === "cuidador") {
+        navigate("/pacientes-monitorados");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       toast.error("Erro ao atualizar perfil");
       console.error(error);
@@ -115,7 +122,14 @@ const EditarPerfil = () => {
           <Button
             variant="ghost"
             size="lg"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => {
+              // Voltar para o dashboard correto baseado no tipo de perfil
+              if (tipoPerfil === "cuidador") {
+                navigate("/pacientes-monitorados");
+              } else {
+                navigate("/dashboard");
+              }
+            }}
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
@@ -174,63 +188,67 @@ const EditarPerfil = () => {
                 />
               </div>
 
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-xl font-semibold mb-4">Contato de Emergência</h3>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="contato-nome" className="text-xl">Nome</Label>
-                    <Input
-                      id="contato-nome"
-                      type="text"
-                      placeholder="Nome do contato"
-                      value={contatoEmergenciaNome}
-                      onChange={(e) => setContatoEmergenciaNome(e.target.value)}
-                      className="h-14 text-lg"
-                    />
+              {tipoPerfil === "idoso" && (
+                <>
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-xl font-semibold mb-4">Contato de Emergência</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="contato-nome" className="text-xl">Nome</Label>
+                        <Input
+                          id="contato-nome"
+                          type="text"
+                          placeholder="Nome do contato"
+                          value={contatoEmergenciaNome}
+                          onChange={(e) => setContatoEmergenciaNome(e.target.value)}
+                          className="h-14 text-lg"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="contato-telefone" className="text-xl">Telefone</Label>
+                        <Input
+                          id="contato-telefone"
+                          type="tel"
+                          placeholder="(00) 00000-0000"
+                          value={contatoEmergenciaTelefone}
+                          onChange={(e) => setContatoEmergenciaTelefone(e.target.value)}
+                          className="h-14 text-lg"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="contato-telefone" className="text-xl">Telefone</Label>
-                    <Input
-                      id="contato-telefone"
-                      type="tel"
-                      placeholder="(00) 00000-0000"
-                      value={contatoEmergenciaTelefone}
-                      onChange={(e) => setContatoEmergenciaTelefone(e.target.value)}
-                      className="h-14 text-lg"
-                    />
-                  </div>
-                </div>
-              </div>
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-xl font-semibold mb-4">Informações de Saúde</h3>
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="alergias" className="text-xl">Alergias Conhecidas</Label>
+                        <Textarea
+                          id="alergias"
+                          placeholder="Descreva suas alergias conhecidas..."
+                          value={alergias}
+                          onChange={(e) => setAlergias(e.target.value)}
+                          className="min-h-24 text-lg"
+                        />
+                      </div>
 
-              <div className="border-t pt-6 mt-6">
-                <h3 className="text-xl font-semibold mb-4">Informações de Saúde</h3>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="alergias" className="text-xl">Alergias Conhecidas</Label>
-                    <Textarea
-                      id="alergias"
-                      placeholder="Descreva suas alergias conhecidas..."
-                      value={alergias}
-                      onChange={(e) => setAlergias(e.target.value)}
-                      className="min-h-24 text-lg"
-                    />
+                      <div className="space-y-2">
+                        <Label htmlFor="condicoes" className="text-xl">Condições Médicas</Label>
+                        <Textarea
+                          id="condicoes"
+                          placeholder="Descreva suas condições médicas relevantes..."
+                          value={condicoesMedicas}
+                          onChange={(e) => setCondicoesMedicas(e.target.value)}
+                          className="min-h-24 text-lg"
+                        />
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="condicoes" className="text-xl">Condições Médicas</Label>
-                    <Textarea
-                      id="condicoes"
-                      placeholder="Descreva suas condições médicas relevantes..."
-                      value={condicoesMedicas}
-                      onChange={(e) => setCondicoesMedicas(e.target.value)}
-                      className="min-h-24 text-lg"
-                    />
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </form>
           </CardContent>
         </Card>

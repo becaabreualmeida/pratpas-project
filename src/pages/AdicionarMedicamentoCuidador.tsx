@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, X, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, AlertTriangle, Pill } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,12 +16,33 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const NovoMedicamento = () => {
+interface Paciente {
+  nome: string;
+  email: string;
+  alergias: string | null;
+  condicoes_medicas: string | null;
+}
+
+interface MedicamentoAtual {
+  nome_medicamento: string;
+  dosagem: string;
+  data_fim: string | null;
+}
+
+const AdicionarMedicamentoCuidador = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { pacienteId } = useParams();
+  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [modalAberto, setModalAberto] = useState(false);
+  
+  // Dados do paciente
+  const [paciente, setPaciente] = useState<Paciente | null>(null);
+  const [medicamentosAtuais, setMedicamentosAtuais] = useState<MedicamentoAtual[]>([]);
+  
+  // Dados do formulário
   const [nome, setNome] = useState("");
   const [dosagem, setDosagem] = useState("");
   const [horarioInicio, setHorarioInicio] = useState("");
@@ -33,63 +54,95 @@ const NovoMedicamento = () => {
   const [limiteReabastecimento, setLimiteReabastecimento] = useState("");
   const [quantidadeEmbalagem, setQuantidadeEmbalagem] = useState("");
   const [diasAntecedenciaReposicao, setDiasAntecedenciaReposicao] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [excluindo, setExcluindo] = useState(false);
-  const [permiteCadastro, setPermiteCadastro] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    const checkUserPermissions = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        
-        // Buscar perfil do usuário
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('permite_auto_cadastro')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile) {
-          setPermiteCadastro(profile.permite_auto_cadastro ?? true);
-        }
-      }
-    };
+    carregarDadosPaciente();
+  }, [pacienteId]);
 
-    checkUserPermissions();
-
-    if (id) {
-      carregarMedicamento();
+  const carregarDadosPaciente = async () => {
+    if (!pacienteId) {
+      toast.error("ID do paciente não fornecido");
+      navigate("/pacientes-monitorados");
+      return;
     }
-  }, [id]);
 
-  const carregarMedicamento = async () => {
     try {
-      const { data, error } = await supabase
-        .from('medicamentos')
-        .select('*')
-        .eq('id', id)
+      // Verificar se o cuidador tem permissão para acessar este paciente
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        navigate("/auth");
+        return;
+      }
+
+      const { data: vinculo } = await supabase
+        .from('relacionamento_cuidador')
+        .select('id')
+        .eq('cuidador_id', user.id)
+        .eq('idoso_id', pacienteId)
         .single();
 
-      if (error) throw error;
-
-      if (data) {
-        setNome(data.nome_medicamento);
-        setDosagem(data.dosagem);
-        setHorarioInicio(data.horario_inicio || "");
-        setFrequenciaNumero(data.frequencia_numero?.toString() || "");
-        setFrequenciaUnidade(data.frequencia_unidade || "horas");
-        setDataInicio(data.data_inicio || "");
-        setDataFim(data.data_fim || "");
-        setQuantidadeInicial(data.quantidade_inicial?.toString() || "");
-        setLimiteReabastecimento(data.limite_reabastecimento?.toString() || "");
-        setQuantidadeEmbalagem(data.quantidade_embalagem?.toString() || "");
-        setDiasAntecedenciaReposicao(data.dias_antecedencia_reposicao?.toString() || "");
+      if (!vinculo) {
+        toast.error("Você não tem permissão para gerenciar este paciente");
+        navigate("/pacientes-monitorados");
+        return;
       }
+
+      // Carregar dados do paciente
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('nome, email, alergias, condicoes_medicas')
+        .eq('id', pacienteId)
+        .single();
+
+      if (profileError) throw profileError;
+      setPaciente(profileData);
+
+      // Carregar medicamentos atuais do paciente que ainda têm doses pendentes
+      const hoje = new Date().toISOString().split('T')[0];
+      const { data: medicamentos, error: medsError } = await supabase
+        .from('medicamentos')
+        .select(`
+          nome_medicamento, 
+          dosagem, 
+          data_fim,
+          id
+        `)
+        .eq('usuario_id', pacienteId)
+        .or(`data_fim.is.null,data_fim.gte.${hoje}`)
+        .eq('ativo', true);
+
+      if (medsError) throw medsError;
+
+      // Filtrar apenas medicamentos que têm doses pendentes
+      const medicamentosComDosesPendentes = [];
+      if (medicamentos) {
+        for (const med of medicamentos) {
+          const { data: registrosPendentes } = await supabase
+            .from('registros_tomada')
+            .select('id')
+            .eq('medicamento_id', med.id)
+            .eq('status', 'Pendente')
+            .limit(1);
+
+          if (registrosPendentes && registrosPendentes.length > 0) {
+            medicamentosComDosesPendentes.push({
+              nome_medicamento: med.nome_medicamento,
+              dosagem: med.dosagem,
+              data_fim: med.data_fim
+            });
+          }
+        }
+      }
+      
+      setMedicamentosAtuais(medicamentosComDosesPendentes);
+
     } catch (error: any) {
-      toast.error("Erro ao carregar medicamento");
+      toast.error("Erro ao carregar dados do paciente");
       console.error(error);
+      navigate("/pacientes-monitorados");
+    } finally {
+      setCarregando(false);
     }
   };
 
@@ -102,7 +155,6 @@ const NovoMedicamento = () => {
     const freq = parseInt(frequenciaNumero);
     const diasAntecedencia = parseInt(diasAntecedenciaReposicao);
     
-    // Calcular quantos dias o medicamento vai durar
     let diasDuracao = 0;
     switch (frequenciaUnidade) {
       case 'horas':
@@ -119,7 +171,6 @@ const NovoMedicamento = () => {
         break;
     }
 
-    // Data de reposição = data de início + dias de duração - dias de antecedência
     const dataInicioDate = new Date(dataInicio);
     const dataReposicao = new Date(dataInicioDate);
     dataReposicao.setDate(dataReposicao.getDate() + diasDuracao - diasAntecedencia);
@@ -127,66 +178,32 @@ const NovoMedicamento = () => {
     return dataReposicao.toISOString().split('T')[0];
   };
 
-  const handleExcluir = async () => {
-    if (!id) return;
-    
-    setExcluindo(true);
-    try {
-      // Excluir os registros de tomada associados
-      const { error: errorRegistros } = await supabase
-        .from('registros_tomada')
-        .delete()
-        .eq('medicamento_id', id);
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
 
-      if (errorRegistros) throw errorRegistros;
-
-      // Excluir o medicamento
-      const { error: errorMedicamento } = await supabase
-        .from('medicamentos')
-        .delete()
-        .eq('id', id);
-
-      if (errorMedicamento) throw errorMedicamento;
-
-      toast.success("Medicamento excluído com sucesso!");
-      navigate("/dashboard");
-    } catch (error: any) {
-      toast.error("Erro ao excluir medicamento");
-      console.error(error);
-    } finally {
-      setExcluindo(false);
+    if (!horarioInicio) {
+      toast.error("Por favor, defina o horário de início");
+      return;
     }
+
+    if (!frequenciaNumero || parseInt(frequenciaNumero) <= 0) {
+      toast.error("Por favor, defina uma frequência válida");
+      return;
+    }
+
+    // Abrir modal de segurança
+    setModalAberto(true);
   };
 
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirmarESalvar = async () => {
     setLoading(true);
+    setModalAberto(false);
 
     try {
-      if (!horarioInicio) {
-        toast.error("Por favor, defina o horário de início");
-        setLoading(false);
-        return;
-      }
-
-      if (!frequenciaNumero || parseInt(frequenciaNumero) <= 0) {
-        toast.error("Por favor, defina uma frequência válida");
-        setLoading(false);
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast.error("Usuário não autenticado");
-        navigate("/auth");
-        return;
-      }
-
       const dataReposicao = calcularDataReposicao();
 
       const medicamentoData = {
+        usuario_id: pacienteId,
         nome_medicamento: nome,
         dosagem: dosagem,
         horario_inicio: horarioInicio,
@@ -202,78 +219,47 @@ const NovoMedicamento = () => {
         data_reposicao: dataReposicao,
       };
 
-      // Se for edição, atualizar normalmente
-      if (id) {
-        const { data, error: medicamentoError } = await supabase
-          .from('medicamentos')
-          .update(medicamentoData)
-          .eq('id', id)
-          .select()
-          .single();
+      const { data: result, error: funcError } = await supabase.functions.invoke('criar-medicamento-cuidador', {
+        body: {
+          paciente_id: pacienteId,
+          nome_medicamento: nome,
+          dosagem,
+          horario_inicio: horarioInicio,
+          frequencia_numero: parseInt(frequenciaNumero),
+          frequencia_unidade: frequenciaUnidade,
+          data_inicio: dataInicio || null,
+          data_fim: dataFim || null,
+          quantidade_inicial: quantidadeInicial ? parseInt(quantidadeInicial) : null,
+          limite_reabastecimento: limiteReabastecimento ? parseInt(limiteReabastecimento) : null,
+          quantidade_embalagem: quantidadeEmbalagem ? parseInt(quantidadeEmbalagem) : null,
+          dias_antecedencia_reposicao: diasAntecedenciaReposicao ? parseInt(diasAntecedenciaReposicao) : null,
+          data_reposicao: dataReposicao,
+        },
+      });
 
-        if (medicamentoError) throw medicamentoError;
-        toast.success("Medicamento atualizado com sucesso!");
-        navigate("/dashboard");
-        return;
-      }
+      if (funcError) throw funcError;
 
-      // Se for novo medicamento, verificar permissão
-      if (!permiteCadastro) {
-        // Criar solicitação para aprovação do cuidador
-        const { error: solicitacaoError } = await supabase
-          .from('solicitacoes_medicamento')
-          .insert({
-            ...medicamentoData,
-            paciente_id: user.id,
-            status: 'pendente',
-          });
+      toast.success('Medicamento adicionado com sucesso!');
 
-        if (solicitacaoError) throw solicitacaoError;
-        
-        toast.success("Solicitação enviada para aprovação do seu cuidador");
-        navigate("/dashboard");
-      } else {
-        // Criar medicamento diretamente
-        const { data: medicamento, error: medicamentoError } = await supabase
-          .from('medicamentos')
-          .insert({
-            ...medicamentoData,
-            usuario_id: user.id,
-          })
-          .select()
-          .single();
-
-        if (medicamentoError) throw medicamentoError;
-
-        // Agendar lembretes
-        const { error: agendamentoError } = await supabase.functions.invoke('agendar-medicamento', {
-          body: {
-            medicamento_id: medicamento.id,
-            usuario_id: user.id,
-            horario_inicio: horarioInicio,
-            frequencia_numero: parseInt(frequenciaNumero),
-            frequencia_unidade: frequenciaUnidade,
-            data_inicio: dataInicio || null,
-            data_fim: dataFim || null,
-          },
-        });
-
-        if (agendamentoError) {
-          console.error('Erro ao agendar lembretes:', agendamentoError);
-          toast.error("Medicamento salvo, mas houve erro ao agendar lembretes");
-        } else {
-          toast.success("Medicamento cadastrado e lembretes agendados!");
-        }
-
-        navigate("/dashboard");
-      }
+      navigate(`/gerenciamento-paciente/${pacienteId}`);
     } catch (error: any) {
-      toast.error("Erro ao cadastrar medicamento");
+      toast.error("Erro ao adicionar medicamento");
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
+
+  if (carregando) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <Pill className="w-16 h-16 text-primary animate-pulse mx-auto mb-4" />
+          <p className="text-xl text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -282,62 +268,35 @@ const NovoMedicamento = () => {
           <Button
             variant="ghost"
             size="lg"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(`/gerenciamento-paciente/${pacienteId}`)}
           >
             <ArrowLeft className="w-6 h-6" />
           </Button>
-          <h1 className="text-2xl font-bold">{id ? "Editar Medicamento" : "Novo Medicamento"}</h1>
-          <div className="ml-auto flex gap-2">
-            {id && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="h-12 px-6 text-lg font-semibold"
-                    disabled={excluindo}
-                  >
-                    <Trash2 className="w-5 h-5 mr-2" />
-                    Excluir
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="text-2xl">Confirmar Exclusão</AlertDialogTitle>
-                    <AlertDialogDescription className="text-lg">
-                      Tem certeza que deseja excluir este medicamento? Esta ação não pode ser desfeita e todos os lembretes associados serão removidos.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="h-12 px-6 text-lg">Cancelar</AlertDialogCancel>
-                    <AlertDialogAction 
-                      className="h-12 px-6 text-lg bg-destructive hover:bg-destructive/90"
-                      onClick={handleExcluir}
-                    >
-                      Excluir
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            <Button
-              className="h-12 px-6 text-lg font-semibold"
-              onClick={handleSubmit}
-              disabled={loading}
-            >
-              <Save className="w-5 h-5 mr-2" />
-              Salvar
-            </Button>
-          </div>
+          <h1 className="text-2xl font-bold">Adicionar Medicamento</h1>
+          <Button
+            className="ml-auto h-12 px-6 text-lg font-semibold"
+            onClick={handleFormSubmit}
+            disabled={loading}
+          >
+            <Save className="w-5 h-5 mr-2" />
+            Salvar
+          </Button>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
+        <Card className="shadow-[var(--shadow-medium)] mb-6">
+          <CardHeader>
+            <CardTitle className="text-2xl">Paciente: {paciente?.nome}</CardTitle>
+          </CardHeader>
+        </Card>
+
         <Card className="shadow-[var(--shadow-medium)]">
           <CardHeader>
             <CardTitle className="text-2xl">Informações do Medicamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="nome" className="text-xl">Nome do Medicamento</Label>
                 <Input
@@ -471,7 +430,6 @@ const NovoMedicamento = () => {
                   onChange={(e) => setQuantidadeEmbalagem(e.target.value)}
                   className="h-14 text-lg"
                 />
-                <p className="text-sm text-muted-foreground">Quantas unidades vêm em cada embalagem?</p>
               </div>
 
               <div className="space-y-2">
@@ -485,14 +443,77 @@ const NovoMedicamento = () => {
                   onChange={(e) => setDiasAntecedenciaReposicao(e.target.value)}
                   className="h-14 text-lg"
                 />
-                <p className="text-sm text-muted-foreground">Com quantos dias antes do medicamento acabar você quer ser lembrado?</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </main>
+
+      {/* Modal de Alerta de Segurança */}
+      <AlertDialog open={modalAberto} onOpenChange={setModalAberto}>
+        <AlertDialogContent className="max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-2xl">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+              Verificação de Segurança
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base">
+              Você está adicionando <strong>{nome}</strong> para <strong>{paciente?.nome}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="bg-destructive/10 border border-destructive rounded-lg p-4">
+              <h3 className="font-bold text-lg mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                ATENÇÃO: Informações de Saúde do Paciente
+              </h3>
+              <div className="space-y-2">
+                <div>
+                  <Label className="font-semibold">Alergias:</Label>
+                  <p className="text-muted-foreground">
+                    {paciente?.alergias || "Nenhuma alergia registrada"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="font-semibold">Condições Médicas:</Label>
+                  <p className="text-muted-foreground">
+                    {paciente?.condicoes_medicas || "Nenhuma condição registrada"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-accent rounded-lg p-4">
+              <h3 className="font-bold text-lg mb-2">Medicamentos Atuais deste Paciente:</h3>
+              {medicamentosAtuais.length === 0 ? (
+                <p className="text-muted-foreground">Nenhum medicamento ativo registrado</p>
+              ) : (
+                <ul className="space-y-2">
+                  {medicamentosAtuais.map((med, index) => (
+                    <li key={index} className="border-l-4 border-primary pl-3">
+                      <p className="font-semibold">{med.nome_medicamento}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Dosagem: {med.dosagem}
+                        {med.data_fim && ` • Fim: ${new Date(med.data_fim).toLocaleDateString('pt-BR')}`}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmarESalvar} disabled={loading}>
+              Confirmar e Salvar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
-export default NovoMedicamento;
+export default AdicionarMedicamentoCuidador;

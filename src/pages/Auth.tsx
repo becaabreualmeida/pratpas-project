@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Pill, Loader2 } from "lucide-react";
 
@@ -14,18 +15,39 @@ const Auth = () => {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [tipoPerfil, setTipoPerfil] = useState<"idoso" | "cuidador">("idoso");
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
-        navigate("/dashboard");
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tipo_perfil')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile?.tipo_perfil === 'cuidador') {
+          navigate("/pacientes-monitorados");
+        } else {
+          navigate("/dashboard");
+        }
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        navigate("/dashboard");
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tipo_perfil')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profile?.tipo_perfil === 'cuidador') {
+          navigate("/pacientes-monitorados");
+        } else {
+          navigate("/dashboard");
+        }
       }
     });
 
@@ -59,7 +81,7 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data: authData, error } = await supabase.auth.signUp({
           email,
           password: senha,
           options: {
@@ -69,6 +91,18 @@ const Auth = () => {
             emailRedirectTo: `${window.location.origin}/dashboard`,
           },
         });
+
+        if (!error && authData.user) {
+          // Atualizar o tipo de perfil no profiles
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ tipo_perfil: tipoPerfil })
+            .eq('id', authData.user.id);
+
+          if (profileError) {
+            console.error("Erro ao atualizar perfil:", profileError);
+          }
+        }
 
         if (error) {
           if (error.message.includes("already registered")) {
@@ -104,18 +138,41 @@ const Auth = () => {
         <CardContent>
           <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="nome" className="text-lg">Nome Completo</Label>
-                <Input
-                  id="nome"
-                  type="text"
-                  placeholder="Seu nome"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required={!isLogin}
-                  className="h-12 text-lg"
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="nome" className="text-lg">Nome Completo</Label>
+                  <Input
+                    id="nome"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
+                    required={!isLogin}
+                    className="h-12 text-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-lg">Tipo de Perfil</Label>
+                  <RadioGroup
+                    value={tipoPerfil}
+                    onValueChange={(value) => setTipoPerfil(value as "idoso" | "cuidador")}
+                    className="space-y-3"
+                  >
+                    <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <RadioGroupItem value="idoso" id="idoso" />
+                      <Label htmlFor="idoso" className="text-lg cursor-pointer flex-1">
+                        Sou Paciente (Idoso)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-3 border rounded-lg p-4 hover:bg-accent cursor-pointer">
+                      <RadioGroupItem value="cuidador" id="cuidador" />
+                      <Label htmlFor="cuidador" className="text-lg cursor-pointer flex-1">
+                        Sou Cuidador
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-lg">Email</Label>
@@ -175,6 +232,7 @@ const Auth = () => {
                 setNome("");
                 setEmail("");
                 setSenha("");
+                setTipoPerfil("idoso");
               }}
             >
               {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Entre"}
